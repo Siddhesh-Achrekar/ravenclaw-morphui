@@ -61,6 +61,33 @@
     }
     .close-btn:hover { background: var(--border); color: var(--text); }
 
+    /* ---- Scope Toggles ---- */
+    .scope-toggles {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .scope-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: var(--card-bg);
+      color: var(--text-dim);
+      transition: all 0.2s;
+    }
+    .scope-btn.active-site {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+    .scope-btn.active-global {
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--text);
+      border-color: var(--border);
+    }
 
     /* ---- Morph Button ---- */
     .morph-btn {
@@ -121,26 +148,6 @@
     }
     .toggle.on::after { transform: translateX(20px); }
 
-    .toggle-btn {
-    flex: 1;
-    padding: 10px 0;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--card-bg);
-    color: var(--text);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .toggle-btn.selected {
-    background: var(--gradient-hero);
-    color: var(--bg);
-    border-color: var(--gradient-hero);
-  }
-  .toggle-btn:hover {
-    border-color: var(--primary);
-  }
-
     /* ---- Section labels ---- */
     .section-label {
       font-size: 0.75rem;
@@ -199,6 +206,62 @@
       transition: border-color 0.2s, background 0.2s;
     }
     .ai-btn:hover { border-color: rgba(139, 92, 246, 0.5); background: rgba(30, 41, 59, 0.8); }
+
+    /* ---- AI Interaction Area ---- */
+    .ai-result-box {
+      background: #1f2937;
+      border: 1px solid #374151;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-top: 16px;
+      margin-bottom: 12px;
+      word-wrap: break-word;
+    }
+    .ai-result-box.error {
+      color: #fca5a5;
+    }
+    .ai-result-box ul {
+      padding-left: 20px;
+      margin: 8px 0 0 0;
+    }
+    .ai-result-box li {
+      margin-bottom: 6px;
+    }
+    .ai-chat-input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 16px;
+      margin-bottom: 12px;
+    }
+    #ai-chat-input {
+      flex-grow: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      outline: none;
+    }
+    #ai-chat-input:focus {
+      border-color: var(--primary);
+      box-shadow: var(--glow);
+    }
+    #ai-chat-send {
+      padding: 8px 12px;
+      background: var(--primary);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    #ai-chat-send:hover { opacity: 0.85; }
+    .hidden { display: none !important; }
 
     /* ---- Accessibility (collapsible) ---- */
     .acc-header {
@@ -296,10 +359,10 @@
     </button>
   </header>
 
-  <!-- Morph Toggle: Morphed / Original -->
-  <div class="morph-toggle" style="display: flex; gap: 8px; margin-bottom: 12px;">
-    <button id="morphed-btn" class="toggle-btn selected">Morphed</button>
-    <button id="original-btn" class="toggle-btn">Original</button>
+  <!-- Scope: Active on this site | Global -->
+  <div class="scope-toggles">
+    <button id="scope-site" class="scope-btn active-site">Active on this site</button>
+    <button id="scope-global" class="scope-btn">Global</button>
   </div>
 
   <!-- Morph This Page -->
@@ -353,6 +416,15 @@
       <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Chat / Q&A
     </button>
+  </div>
+
+  <!-- AI Interaction Area -->
+  <div id="ai-interaction-area">
+    <div id="ai-result-box" class="ai-result-box hidden"></div>
+    <div id="ai-chat-input-group" class="ai-chat-input-group hidden">
+      <input type="text" id="ai-chat-input" placeholder="Ask a question...">
+      <button id="ai-chat-send">Send</button>
+    </div>
   </div>
 
   <!-- Custom Morph  -->

@@ -2,7 +2,7 @@
 import { env } from './config.js';
 
 const MORPH_STYLE_ID = 'morph-ui-injected';
-const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lites';
 
 // --- Gemini API: single place for fetch, error handling, response parsing ---
 async function callGemini(prompt) {
@@ -83,17 +83,6 @@ function applyMorphInPage(styleId, modeCss, accCss, runKidsDom) {
   }
 }
 
-// --- Injected function: Removes styles and resets inline changes ---
-function removeMorphInPage(styleId) {
-  const old = document.getElementById(styleId);
-  if (old) old.remove();
-  document.querySelectorAll('a, button, [role="button"]').forEach(function (el) {
-    el.style.removeProperty('background');
-    el.style.removeProperty('color');
-    el.style.removeProperty('border');
-  });
-}
-
 // --- State ---
 let state = {
   scope: 'site',
@@ -102,32 +91,7 @@ let state = {
   dyslexia: false,
   highContrast: false,
   colorBlindness: 'none',
-  pageState: 'morphed',
 };
-
-function setPageState(newState) {
-  state.pageState = newState;
-  saveState();
-
-  // Highlight buttons
-  const morphedBtn = document.getElementById('morphed-btn');
-  const originalBtn = document.getElementById('original-btn');
-  
-  if (morphedBtn) morphedBtn.classList.toggle('selected', newState === 'morphed');
-  if (originalBtn) originalBtn.classList.toggle('selected', newState === 'original');
-
-  if (newState === 'morphed') {
-    // Highlight the active mode card
-    document.querySelectorAll('.mode-card').forEach(c => {
-      c.classList.toggle('selected', c.dataset.mode === state.mode);
-    });
-    runMorph();
-  } else {
-    // Original: Deselect mode cards and remove styles
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    runOnActiveTab(removeMorphInPage, [MORPH_STYLE_ID]);
-  }
-}
 
 async function loadState() {
   try {
@@ -186,6 +150,16 @@ document.getElementById('close-btn').addEventListener('click', () => {
   try { window.close(); } catch (_) {}
 });
 
+// --- UI: Scope toggles ---
+function setScope(s) {
+  state.scope = s;
+  saveState();
+  document.getElementById('scope-site').className = 'scope-btn ' + (s === 'site' ? 'active-site' : '');
+  document.getElementById('scope-global').className = 'scope-btn ' + (s === 'global' ? 'active-global' : '');
+}
+document.getElementById('scope-site').addEventListener('click', () => setScope('site'));
+document.getElementById('scope-global').addEventListener('click', () => setScope('global'));
+
 // --- UI: Safe Mode toggle ---
 document.getElementById('safe-mode-toggle').addEventListener('click', () => {
   state.safeMode = !state.safeMode;
@@ -198,7 +172,9 @@ document.getElementById('safe-mode-toggle').addEventListener('click', () => {
 document.querySelectorAll('.mode-card').forEach(card => {
   card.addEventListener('click', () => {
     state.mode = card.dataset.mode;
-    setPageState('morphed');
+    saveState();
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
   });
 });
 
@@ -238,38 +214,92 @@ async function getPageText() {
   }
 }
 
+// --- UI: AI Interaction ---
+const resultBox = document.getElementById('ai-result-box');
+const chatInputGroup = document.getElementById('ai-chat-input-group');
+const chatInput = document.getElementById('ai-chat-input');
+const chatSend = document.getElementById('ai-chat-send');
+
+function showAiResult(content, isError = false) {
+  resultBox.classList.remove('hidden', 'error');
+  if (isError) {
+    resultBox.classList.add('error');
+    resultBox.textContent = content;
+  } else {
+    // Naively convert bullet points to an unordered list
+    if (content.includes('* ') || content.includes('- ')) {
+      const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
+      resultBox.innerHTML = `<ul>${listItems}</ul>`;
+    } else {
+      resultBox.textContent = content;
+    }
+  }
+}
+
+function showAiLoader() {
+  chatInputGroup.classList.add('hidden');
+  resultBox.classList.remove('hidden', 'error');
+  resultBox.textContent = 'Thinking...';
+}
+
 // --- UI: AI Summarize ---
 document.getElementById('ai-summarize').addEventListener('click', async () => {
+  showAiLoader();
   const page = await getPageText();
   if (!page.ok) {
-    alert('Summarize: ' + page.error);
+    showAiResult('Summarize: ' + page.error, true);
     return;
   }
   if (!page.text) {
-    alert('No text could be extracted from this page. Try a different page.');
+    showAiResult('No text could be extracted from this page. Try a different page.', true);
     return;
   }
   const sys = 'You are a helpful assistant. Summarize the following webpage in 3–5 short bullet points in simple language. Output only the bullets, no extra intro.';
   const prompt = sys + '\n\n---\n\n' + page.text;
   const r = await callGemini(prompt);
-  if (r.ok) alert('Summary:\n\n' + r.text);
-  else alert('Summarize failed: ' + r.error);
+  if (r.ok) showAiResult(r.text);
+  else showAiResult('Summarize failed: ' + r.error, true);
 });
 
 // --- UI: Chat / Q&A ---
-document.getElementById('ai-chat').addEventListener('click', async () => {
-  const q = window.prompt('Ask a question about this page:');
-  if (q == null || String(q).trim() === '') return;
-  const page = await getPageText();
-  if (!page.ok) {
-    alert('Q&A: ' + page.error);
-    return;
+async function runChat() {
+    const q = chatInput.value.trim();
+    if (q === '') return;
+
+    showAiLoader();
+    chatInput.value = '';
+
+    const page = await getPageText();
+    if (!page.ok) {
+        showAiResult('Q&A: ' + page.error, true);
+        return;
+    }
+
+    const context = page.text || '(No page text available.)';
+    const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
+    const r = await callGemini(prompt);
+
+    // Show the input again after getting a response
+    chatInputGroup.classList.remove('hidden');
+
+    if (r.ok) showAiResult(r.text);
+    else showAiResult('Q&A failed: ' + r.error, true);
+}
+
+document.getElementById('ai-chat').addEventListener('click', () => {
+  resultBox.classList.add('hidden'); // Hide any previous result
+  const isHidden = chatInputGroup.classList.toggle('hidden');
+  if (!isHidden) {
+    chatInput.focus();
   }
-  const context = page.text || '(No page text available.)';
-  const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
-  const r = await callGemini(prompt);
-  if (r.ok) alert('Answer:\n\n' + r.text);
-  else alert('Q&A failed: ' + r.error);
+});
+
+chatSend.addEventListener('click', runChat);
+chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        runChat();
+    }
 });
 
 // --- UI: Accessibility collapsible ---
@@ -306,10 +336,6 @@ document.getElementById('color-blindness').addEventListener('change', async (e) 
   runMorph();
 });
 
-// --- UI: Morphed / Original toggle ---
-document.getElementById('morphed-btn').addEventListener('click', () => setPageState('morphed'));
-document.getElementById('original-btn').addEventListener('click', () => setPageState('original'));
-
 // --- UI: Mic (placeholder: could open voice UI or run voice-related logic) ---
 document.getElementById('mic-btn').addEventListener('click', () => {
   // Placeholder: e.g. open a small voice-input UI or trigger Web Speech API in sidepanel
@@ -329,7 +355,7 @@ loadState().then(() => {
   setScope(state.scope);
   document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
   document.getElementById('safe-mode-toggle').setAttribute('aria-checked', state.safeMode);
-  setPageState(state.pageState);
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
   document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
