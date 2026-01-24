@@ -17,7 +17,7 @@ const MODE_PROMPTS = {
 // --- Gemini API ---
 async function callGemini(prompt) {
   const key = env.GEMINI_API_KEY;
-  const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
+  const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
   if (!key || !base) {
     return { ok: false, error: 'Missing GEMINI_API_KEY or BASE_URL in config.js' };
   }
@@ -205,7 +205,7 @@ function saveState() {
 async function getPageText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return { ok: false, error: 'No active tab.' };
-  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\//i.test(tab.url)) {
+  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\/$/i.test(tab.url)) {
     return { ok: false, error: 'Cannot read internal browser pages.' };
   }
   try {
@@ -222,7 +222,7 @@ async function getPageText() {
 
 // --- MAIN MORPH FUNCTION (AI Powered) ---
 async function runMorph(customPrompt = null) {
-  setView('morphed');
+  setView('morphed', { apply: false });
   let promptInstruction = customPrompt;
   if (!promptInstruction) {
     promptInstruction = MODE_PROMPTS[state.mode] || MODE_PROMPTS['easy-read'];
@@ -249,7 +249,7 @@ async function runMorph(customPrompt = null) {
   if (!res.ok) {
     console.error(res.error);
     alert("AI Error: " + res.error);
-    return;
+    throw new Error(res.error);
   }
 
   // Inject Overlay with Shadow DOM-specific styles
@@ -290,149 +290,174 @@ async function setView(view, { apply = true } = {}) {
   }
 }
 
-// --- UI EVENT LISTENERS ---
+// --- Wait for DOM to load before attaching listeners ---
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Element Cache ---
+  const customInput = document.getElementById('custom-prompt');
+  const customBtn = document.getElementById('custom-apply-btn');
+  const resultBox = document.getElementById('ai-result-box');
+  const chatInputGroup = document.getElementById('ai-chat-input-group');
+  const chatInput = document.getElementById('ai-chat-input');
+  const chatSend = document.getElementById('ai-chat-send');
+  const dyslexiaToggle = document.getElementById('dyslexia-toggle');
+  const highContrastToggle = document.getElementById('high-contrast-toggle');
+  const colorBlindnessSelect = document.getElementById('color-blindness');
 
-// View Toggle: Morphed | Original
-document.getElementById('view-morphed').addEventListener('click', () => {
-  setView('morphed');
-});
-document.getElementById('view-original').addEventListener('click', () => {
-  setView('original');
-});
 
-// Morph Button
-document.getElementById('morph-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('morph-btn');
-  btn.disabled = true;
-  const originalText = btn.querySelector('span').textContent;
-  btn.querySelector('span').textContent = 'Generating UI...';
-  try { await runMorph(); } catch (e) { console.error(e); alert("Unexpected error."); }
-  btn.disabled = false;
-  btn.querySelector('span').textContent = originalText;
-});
-
-// Mode Cards
-document.querySelectorAll('.mode-card').forEach(card => {
-  card.addEventListener('click', () => {
-    state.mode = card.dataset.mode;
-    saveState();
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    setView('morphed');
-  });
-});
-
-// Custom Morph
-const customInput = document.getElementById('custom-morph-input');
-const customBtn = document.getElementById('custom-morph-btn');
-if (customInput && customBtn) {
-  customBtn.addEventListener('click', async () => {
+  // --- Logic for Custom Morph ---
+  const handleCustomMorph = async () => {
     const val = customInput.value.trim();
     if (!val) return;
-    customBtn.disabled = true; customBtn.textContent = '...';
-    await runMorph(val);
-    customBtn.disabled = false; customBtn.textContent = 'Go';
+
+    const originalText = customBtn.textContent;
+    customBtn.disabled = true;
+    customBtn.textContent = 'Processing...';
+
+    try {
+      await runMorph(val);
+    } catch (err) {
+      console.error("Custom morph failed:", err);
+      alert("Failed to apply custom design. Please try again.");
+    } finally {
+      customBtn.disabled = false;
+      customBtn.textContent = originalText;
+    }
+  };
+  
+  if (customInput && customBtn) {
+    customBtn.addEventListener('click', handleCustomMorph);
+    customInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCustomMorph();
+      }
+    });
+  }
+
+  // View Toggle: Morphed | Original
+  document.getElementById('view-morphed').addEventListener('click', () => {
+    setView('morphed');
   });
-}
+  document.getElementById('view-original').addEventListener('click', () => {
+    setView('original');
+  });
 
-// --- UI: Chat & Summarize ---
-const resultBox = document.getElementById('ai-result-box');
-const chatInputGroup = document.getElementById('ai-chat-input-group');
-const chatInput = document.getElementById('ai-chat-input');
-const chatSend = document.getElementById('ai-chat-send');
+  // Morph Button
+  document.getElementById('morph-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('morph-btn');
+    btn.disabled = true;
+    const originalText = btn.querySelector('span').textContent;
+    btn.querySelector('span').textContent = 'Generating UI...';
+    try { await runMorph(); } catch (e) { console.error(e); alert("Unexpected error."); }
+    btn.disabled = false;
+    btn.querySelector('span').textContent = originalText;
+  });
 
-function showAiResult(content, isError = false) {
-  resultBox.classList.remove('hidden', 'error');
-  if (isError) {
-    resultBox.classList.add('error'); resultBox.textContent = content;
-  } else {
-    if (content.includes('* ') || content.includes('- ')) {
-      const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
-      resultBox.innerHTML = `<ul>${listItems}</ul>`;
+  // Mode Cards
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      state.mode = card.dataset.mode;
+      saveState();
+      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      setView('morphed', { apply: false });
+    });
+  });
+
+  // --- UI: Chat & Summarize ---
+  function showAiResult(content, isError = false) {
+    resultBox.classList.remove('hidden', 'error');
+    if (isError) {
+      resultBox.classList.add('error'); resultBox.textContent = content;
     } else {
-      resultBox.textContent = content;
+      if (content.includes('* ') || content.includes('- ')) {
+        const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
+        resultBox.innerHTML = `<ul>${listItems}</ul>`;
+      } else {
+        resultBox.textContent = content;
+      }
     }
   }
-}
 
-function showAiLoader() {
-  chatInputGroup.classList.add('hidden');
-  resultBox.classList.remove('hidden', 'error');
-  resultBox.textContent = 'Thinking...';
-}
+  function showAiLoader() {
+    chatInputGroup.classList.add('hidden');
+    resultBox.classList.remove('hidden', 'error');
+    resultBox.textContent = 'Thinking...';
+  }
 
-document.getElementById('ai-summarize').addEventListener('click', async () => {
-  showAiLoader();
-  const page = await getPageText();
-  if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
-  const r = await callGemini('Summarize this webpage in 3–5 short bullet points.\n\n' + page.text);
-  if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
-});
-
-async function runChat() {
-    const q = chatInput.value.trim();
-    if (q === '') return;
+  document.getElementById('ai-summarize').addEventListener('click', async () => {
     showAiLoader();
-    chatInput.value = '';
     const page = await getPageText();
     if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
-    const r = await callGemini(`Answer based on page: "${q}"\n\n${page.text}`);
-    chatInputGroup.classList.remove('hidden');
+    const r = await callGemini('Summarize this webpage in 3–5 short bullet points.\n\n' + page.text);
     if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
-}
+  });
 
-document.getElementById('ai-chat').addEventListener('click', () => {
-  resultBox.classList.add('hidden');
-  const isHidden = chatInputGroup.classList.toggle('hidden');
-  if (!isHidden) chatInput.focus();
-});
+  async function runChat() {
+      const q = chatInput.value.trim();
+      if (q === '') return;
+      showAiLoader();
+      chatInput.value = '';
+      const page = await getPageText();
+      if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
+      const r = await callGemini(`Answer based on page: "${q}"\n\n${page.text}`);
+      chatInputGroup.classList.remove('hidden');
+      if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
+  }
 
-chatSend.addEventListener('click', runChat);
-chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); runChat(); }
-});
+  document.getElementById('ai-chat').addEventListener('click', () => {
+    resultBox.classList.add('hidden');
+    const isHidden = chatInputGroup.classList.toggle('hidden');
+    if (!isHidden) chatInput.focus();
+  });
 
-// --- ACCESSIBILITY TOGGLES ---
-document.getElementById('dyslexia-toggle').addEventListener('click', () => {
-  state.dyslexia = !state.dyslexia;
-  saveState();
-  document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-  setView('morphed');
-});
+  chatSend.addEventListener('click', runChat);
+  chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); runChat(); }
+  });
 
-document.getElementById('high-contrast-toggle').addEventListener('click', () => {
-  state.highContrast = !state.highContrast;
-  saveState();
-  document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-  setView('morphed');
-});
+  // --- ACCESSIBILITY TOGGLES ---
+  dyslexiaToggle.addEventListener('click', () => {
+    state.dyslexia = !state.dyslexia;
+    saveState();
+    dyslexiaToggle.classList.toggle('on', state.dyslexia);
+    refreshGlobalStyles();
+  });
 
-document.getElementById('color-blindness').addEventListener('change', (e) => {
-  state.colorBlindness = e.target.value;
-  saveState();
-  setView('morphed');
-});
+  highContrastToggle.addEventListener('click', () => {
+    state.highContrast = !state.highContrast;
+    saveState();
+    highContrastToggle.classList.toggle('on', state.highContrast);
+    refreshGlobalStyles();
+  });
 
-// --- Close & Misc ---
-document.getElementById('close-btn').addEventListener('click', () => {
-  try { window.close(); } catch (_) {}
-});
+  colorBlindnessSelect.addEventListener('change', (e) => {
+    state.colorBlindness = e.target.value;
+    saveState();
+    refreshGlobalStyles();
+  });
 
-document.getElementById('safe-mode-toggle').addEventListener('click', () => {
-  state.safeMode = !state.safeMode;
-  saveState();
-  document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
-});
+  // --- Close & Misc ---
+  document.getElementById('close-btn').addEventListener('click', () => {
+    try { window.close(); } catch (_) {}
+  });
 
-// --- Initialization ---
-loadState().then(() => {
-  document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
-  document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-  document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-  document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
-  document.getElementById('color-blindness').value = state.colorBlindness;
-  setView(state.view || 'original');
-  
-  // Apply saved styles immediately on load
-  refreshGlobalStyles();
+  document.getElementById('safe-mode-toggle').addEventListener('click', () => {
+    state.safeMode = !state.safeMode;
+    saveState();
+    document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
+  });
+
+  // --- Initialization ---
+  loadState().then(() => {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
+    dyslexiaToggle.classList.toggle('on', state.dyslexia);
+    highContrastToggle.classList.toggle('on', state.highContrast);
+    document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
+    colorBlindnessSelect.value = state.colorBlindness;
+    setView(state.view || 'original');
+    
+    // Apply saved styles immediately on load
+    refreshGlobalStyles();
+  });
 });
