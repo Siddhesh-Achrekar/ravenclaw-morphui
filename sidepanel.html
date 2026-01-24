@@ -187,9 +187,10 @@
     /* ---- AI Agent ---- */
     .ai-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr auto;
       gap: 10px;
       margin-bottom: 20px;
+      align-items: stretch;
     }
     .ai-btn {
       padding: 12px;
@@ -317,9 +318,10 @@
       margin-bottom: 8px;
     }
     .mic-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
+      width: auto;
+      height: auto;
+      padding: 12px;
+      border-radius: 12px;
       background: var(--card-bg);
       border: 1px solid var(--border);
       color: var(--primary);
@@ -426,6 +428,9 @@
       <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Chat / Q&A
     </button>
+    <button id="mic-btn" class="mic-btn" aria-label="Voice input">
+      <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>
+    </button>
   </div>
 
   <!-- AI Interaction Area -->
@@ -464,11 +469,6 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <div class="mic-wrap">
-      <button id="mic-btn" class="mic-btn" aria-label="Voice input">
-        <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>
-      </button>
-    </div>
     <p class="powered">Powered by Gemini 2.5</p>
     <div class="progress-wrap">
       <div id="progress-fill" class="progress-fill"></div>
