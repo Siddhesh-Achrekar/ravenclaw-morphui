@@ -3,29 +3,31 @@
   "name": "Morph  ",
   "version": "1.0.0",
   "description": "MorphUI is a tool that allows the users to modify the website saccording to their comfort, the AI agent helps to navigate through the website. ",
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  
  
-  "host_permissions": ["<all_urls>"],
-
   "permissions": [
     "sidePanel",
     "activeTab",
     "scripting",
     "storage"
   ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "<all_urls>"
+  ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
   "action": {
     "default_title": "Open Morph UI"
-  },
-  "icons": {
-    "16": "images/icon16.png",
-    "32": "images/icon32.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
   }
 }

@@ -2,9 +2,19 @@
 import { env } from './config.js';
 
 const MORPH_STYLE_ID = 'morph-ui-injected';
+const OVERLAY_ID = 'morph-ui-overlay';
+const ORIGINAL_STYLE_ID = 'morph-acc-original-style'; // NEW: ID for original page styles
 const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
-// --- Gemini API: single place for fetch, error handling, response parsing ---
+// --- PROMPTS FOR AI MODES ---
+const MODE_PROMPTS = {
+  'kids': "Rewrite this webpage content for a 7-year-old. Use a playful, colorful design with large 'Comic Sans' text, emojis, and simple language. Return HTML with inline CSS.",
+  'easy-read': "Rewrite this for maximum readability (WCAG AAA). Use black text on cream background, large sans-serif font, short paragraphs, and no clutter. Return HTML with inline CSS.",
+  'focus': "Summarize this page into the essential core content only. Remove all fluff, ads, and sidebars. Use a dark mode terminal style (green text on black). Return HTML with inline CSS.",
+  'power': "Condense this page into a high-density technical briefing. Use bullet points, data tables, and a professional monochrome look. Return HTML with inline CSS."
+};
+
+// --- Gemini API ---
 async function callGemini(prompt) {
   const key = env.GEMINI_API_KEY;
   const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
@@ -21,7 +31,7 @@ async function callGemini(prompt) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.4,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
           topP: 0.95,
         },
       }),
@@ -42,48 +52,124 @@ async function callGemini(prompt) {
   if (data?.error) {
     return { ok: false, error: data.error.message || JSON.stringify(data.error) };
   }
-  const block = data?.promptFeedback?.blockReason;
-  if (block) {
-    return { ok: false, error: 'Content was blocked: ' + block };
-  }
   const cand = data?.candidates?.[0];
-  if (!cand) {
-    return { ok: false, error: 'No response from the model. Try a different prompt or model.' };
-  }
-  const part = cand?.content?.parts?.[0];
-  const text = part?.text;
-  if (text == null || text === '') {
-    const reason = cand?.finishReason || 'Unknown';
-    return { ok: false, error: 'Empty response (finishReason: ' + reason + ').' };
-  }
+  if (!cand) return { ok: false, error: 'No response from model.' };
+  
+  const text = cand?.content?.parts?.[0]?.text;
+  if (!text) return { ok: false, error: 'Empty response.' };
+  
   return { ok: true, text: String(text).trim() };
 }
 
-// --- Run code on the active tab (func runs in PAGE context; only args are passed) ---
+// --- Run code on the active tab ---
 async function runOnActiveTab(fn, args = []) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
   return chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fn, args });
 }
 
-// --- Injected function: runs IN THE PAGE. Receives pre-built CSS and flags. ---
-function applyMorphInPage(styleId, modeCss, accCss, runKidsDom) {
-  const old = document.getElementById(styleId);
+// --- INJECTOR 1: Full HTML Overlay (Shadow DOM) ---
+function injectMorphOverlay(htmlContent, overlayId, accCss) {
+  // 1. Remove old overlay
+  const old = document.getElementById(overlayId);
   if (old) old.remove();
+
+  // 2. Create Host
+  const host = document.createElement('div');
+  host.id = overlayId;
+  Object.assign(host.style, {
+    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    zIndex: '2147483647', background: 'white', display: 'block'
+  });
+
+  // 3. Create Shadow DOM
+  const shadow = host.attachShadow({ mode: 'open' });
+
+  // 4. Inject Accessibility Styles
   const style = document.createElement('style');
-  style.id = styleId;
-  style.textContent = (modeCss || '') + '\n' + (accCss || '');
-  document.head.appendChild(style);
-  if (runKidsDom) {
-    document.querySelectorAll('a, button, [role="button"]').forEach(function (el) {
-      el.style.setProperty('background', 'linear-gradient(135deg, #fbbf24 0%, #f472b6 100%)', 'important');
-      el.style.setProperty('color', '#1f2937', 'important');
-      el.style.setProperty('border', 'none', 'important');
-    });
-  }
+  style.id = 'morph-acc-style'; 
+  style.textContent = accCss || '';
+  shadow.appendChild(style);
+
+  // 5. Inject AI Content
+  const wrapper = document.createElement('div');
+  wrapper.id = 'morph-content';
+  wrapper.style.height = '100%';
+  wrapper.style.overflowY = 'auto';
+  const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '');
+  wrapper.innerHTML = cleanHtml;
+  shadow.appendChild(wrapper);
+
+  // 6. Close Button
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = "Exit Mode";
+  Object.assign(closeBtn.style, {
+    position: 'fixed', top: '20px', right: '20px', zIndex: '10000',
+    padding: '10px 20px', background: '#ef4444', color: 'white',
+    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'
+  });
+  closeBtn.onclick = () => host.remove();
+  shadow.appendChild(closeBtn);
+
+  document.body.appendChild(host);
 }
 
-// --- State ---
+// --- INJECTOR 2: Update Overlay Styles (Live) ---
+function updateOverlayStyles(overlayId, newCss) {
+  const host = document.getElementById(overlayId);
+  if (!host || !host.shadowRoot) return;
+  const style = host.shadowRoot.getElementById('morph-acc-style');
+  if (style) style.textContent = newCss;
+}
+
+// --- INJECTOR 3: Update Original Page Styles (Live) ---
+function injectOriginalPageStyles(styleId, newCss) {
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement('style');
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+  style.textContent = newCss;
+}
+
+// --- Helper: Build Accessibility CSS ---
+// UPDATED: Simply swaps the font to Comic Sans (Dyslexia friendly) and adjusts spacing
+function buildAccCss(isShadow = false) {
+  let acc = '';
+  
+  // Font override (Dyslexia)
+  if (state.dyslexia) {
+    // 1. Define the font stack (System fonts only for reliability)
+    const fontStack = 'body,p,span,li,div{font-family:\'Comic Sans MS\',sans-serif!important;letter-spacing:0.12em!important;word-spacing:0.2em!important}';
+    // 2. Selectors
+    if (isShadow) {
+      // For AI Overlay
+      acc += `:host, :host * { font-family: ${fontStack} !important; letter-spacing: 0.05em !important; word-spacing: 0.1em !important; line-height: 1.6 !important; }`;
+    } else {
+      // For Original Page - "Nuclear" selector to override everything
+      acc += `html, body, div, p, span, a, h1, h2, h3, h4, h5, h6, li, ul, ol, td, th, button, input, textarea, label, select, article, section, main, nav, header, footer, * { font-family: ${fontStack} !important; letter-spacing: 0.05em !important; word-spacing: 0.1em !important; line-height: 1.6 !important; }`;
+    }
+  }
+  
+  // High Contrast
+  if (state.highContrast) {
+    const target = isShadow ? ':host *' : '*';
+    acc += `${target} { border: 1px solid rgba(255,255,255,0.5) !important; background-color: black !important; color: white !important; } a { color: #FFFF00 !important; }`;
+  }
+  
+  // Color Blindness Filters
+  const cb = state.colorBlindness;
+  const selector = isShadow ? ':host' : 'html';
+  
+  if (cb === 'protanopia') acc += `${selector} { filter: sepia(0.4) saturate(2) hue-rotate(-50deg) !important; }`;
+  if (cb === 'deuteranopia') acc += `${selector} { filter: sepia(0.5) saturate(1.8) hue-rotate(70deg) !important; }`;
+  if (cb === 'tritanopia') acc += `${selector} { filter: sepia(0.2) saturate(2) hue-rotate(160deg) !important; }`;
+  
+  return acc;
+}
+
+// --- State Management ---
 let state = {
   scope: 'site',
   safeMode: true,
@@ -104,71 +190,86 @@ function saveState() {
   chrome.storage.local.set({ morphState: state }).catch(() => {});
 }
 
-// --- Build mode CSS (extension context) ---
-function buildModeCss() {
-  const m = state.mode;
-  if (m === 'easy-read') {
-    return `body{font-size:1.15rem!important;line-height:1.7!important;font-family:Georgia,'Times New Roman',serif!important}p,li,span{max-width:65ch!important}
-      aside,[class*="sidebar"]:not([role="navigation"]),[id*="ad-"],.ad,[class*="advertisement"]{display:none!important}`;
+// --- Get Page Text ---
+async function getPageText() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: 'No active tab.' };
+  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\//i.test(tab.url)) {
+    return { ok: false, error: 'Cannot read internal browser pages.' };
   }
-  if (m === 'focus') {
-    return `aside,[class*="sidebar"],[class*="ad-"],.ad,iframe[src*="ad"]{display:none!important}
-      main,[role="main"],article,.content,#content{max-width:720px!important;margin-left:auto!important;margin-right:auto!important}
-      body{background:#1a1a2e!important;color:#eaeaea!important}`;
+  try {
+    const out = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (document.body && document.body.innerText ? String(document.body.innerText).slice(0, 15000) : ''),
+    });
+    const text = (out?.[0]?.result ?? '').trim();
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: 'Cannot access this page. Try refreshing.' };
   }
-  if (m === 'power') {
-    return `body{font-size:0.9rem!important;line-height:1.4!important;font-family:'SF Mono',Consolas,monospace!important}*{letter-spacing:0.02em!important}table,pre,code{font-size:0.85rem!important}`;
-  }
-  if (m === 'kids') {
-    return `body{font-size:1.2rem!important;line-height:1.8!important;font-family:'Comic Sans MS',Chalkboard,fantasy,sans-serif!important}
-      a,button,[role="button"]{border-radius:12px!important;padding:8px 14px!important;font-weight:bold!important}
-      h1,h2,h3{color:#6366f1!important}`;
-  }
-  return '';
 }
 
-function buildAccCss() {
-  let acc = '';
-  if (state.dyslexia) acc += 'body,p,span,li,div{font-family:\'Comic Sans MS\',sans-serif!important;letter-spacing:0.12em!important;word-spacing:0.2em!important}';
-  if (state.highContrast) acc += '*{border:1px solid rgba(255,255,255,0.25)!important}body{background:#000!important;color:#fff!important}a{color:#60a5fa!important}';
-  const cb = state.colorBlindness;
-  if (cb === 'protanopia') acc += 'html{filter:sepia(0.4) saturate(2) hue-rotate(-50deg)!important}';
-  if (cb === 'deuteranopia') acc += 'html{filter:sepia(0.5) saturate(1.8) hue-rotate(70deg)!important}';
-  if (cb === 'tritanopia') acc += 'html{filter:sepia(0.2) saturate(2) hue-rotate(160deg)!important}';
-  return acc;
+// --- MAIN MORPH FUNCTION (AI Powered) ---
+async function runMorph(customPrompt = null) {
+  let promptInstruction = customPrompt;
+  if (!promptInstruction) {
+    promptInstruction = MODE_PROMPTS[state.mode] || MODE_PROMPTS['easy-read'];
+  }
+
+  const page = await getPageText();
+  if (!page.ok) { alert(page.error); return; }
+  if (!page.text) { alert("Page is empty or unreadable."); return; }
+
+  const fullPrompt = `
+    Act as an Expert Accessibility Frontend Developer.
+    TASK: ${promptInstruction}
+    RULES:
+    1. Return ONLY valid HTML code inside a <div> wrapper.
+    2. Include inline CSS for all styling.
+    3. Make it beautiful, responsive, and fully accessible.
+    4. Do not return markdown ticks (\`\`\`).
+    PAGE CONTENT TO REDESIGN:
+    ${page.text}
+  `;
+
+  const res = await callGemini(fullPrompt);
+  
+  if (!res.ok) {
+    console.error(res.error);
+    alert("AI Error: " + res.error);
+    return;
+  }
+
+  // Inject Overlay with Shadow DOM-specific styles
+  const accCss = buildAccCss(true); 
+  await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss]);
 }
 
-function runMorph() {
-  const modeCss = buildModeCss();
-  const accCss = buildAccCss();
-  const runKidsDom = state.mode === 'kids' && !state.safeMode;
-  return runOnActiveTab(applyMorphInPage, [MORPH_STYLE_ID, modeCss, accCss, runKidsDom]);
+// --- NEW HELPER: Refresh Global Styles (Both Overlay AND Original Page) ---
+async function refreshGlobalStyles() {
+  // 1. Update Overlay (if it exists)
+  const shadowCss = buildAccCss(true); // true = Shadow DOM mode
+  await runOnActiveTab(updateOverlayStyles, [OVERLAY_ID, shadowCss]);
+
+  // 2. Update Original Page (always)
+  const originalCss = buildAccCss(false); // false = Standard DOM mode
+  await runOnActiveTab(injectOriginalPageStyles, [ORIGINAL_STYLE_ID, originalCss]);
 }
 
-// --- UI: Close ---
-document.getElementById('close-btn').addEventListener('click', () => {
-  try { window.close(); } catch (_) {}
+// --- UI EVENT LISTENERS ---
+
+// Morph Button
+document.getElementById('morph-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('morph-btn');
+  btn.disabled = true;
+  const originalText = btn.querySelector('span').textContent;
+  btn.querySelector('span').textContent = 'Generating UI...';
+  try { await runMorph(); } catch (e) { console.error(e); alert("Unexpected error."); }
+  btn.disabled = false;
+  btn.querySelector('span').textContent = originalText;
 });
 
-// --- UI: Scope toggles ---
-function setScope(s) {
-  state.scope = s;
-  saveState();
-  document.getElementById('scope-site').className = 'scope-btn ' + (s === 'site' ? 'active-site' : '');
-  document.getElementById('scope-global').className = 'scope-btn ' + (s === 'global' ? 'active-global' : '');
-}
-document.getElementById('scope-site').addEventListener('click', () => setScope('site'));
-document.getElementById('scope-global').addEventListener('click', () => setScope('global'));
-
-// --- UI: Safe Mode toggle ---
-document.getElementById('safe-mode-toggle').addEventListener('click', () => {
-  state.safeMode = !state.safeMode;
-  saveState();
-  document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
-  document.getElementById('safe-mode-toggle').setAttribute('aria-checked', state.safeMode);
-});
-
-// --- UI: Mode selection ---
+// Mode Cards
 document.querySelectorAll('.mode-card').forEach(card => {
   card.addEventListener('click', () => {
     state.mode = card.dataset.mode;
@@ -178,43 +279,20 @@ document.querySelectorAll('.mode-card').forEach(card => {
   });
 });
 
-// --- UI: Morph This Page ---
-document.getElementById('morph-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('morph-btn');
-  btn.disabled = true;
-  btn.querySelector('span').textContent = 'Morphing...';
-  try {
-    await runMorph();
-  } catch (e) {
-    console.error('Morph error:', e);
-    alert('Morph failed: cannot modify this page (e.g. chrome:// or restricted). Try a normal website.');
-  }
-  btn.disabled = false;
-  btn.querySelector('span').textContent = 'Morph This Page';
-});
-
-// --- Get page text from active tab; returns { ok, text?, error? } ---
-async function getPageText() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return { ok: false, error: 'No active tab.' };
-  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\//i.test(tab.url)) {
-    return { ok: false, error: 'Cannot read browser internal pages (e.g. chrome://). Open a normal website.' };
-  }
-  try {
-    const out = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (document.body && document.body.innerText ? String(document.body.innerText).slice(0, 8000) : ''),
-    });
-    const err = out?.[0]?.error;
-    if (err) return { ok: false, error: 'Cannot read this page (e.g. restricted or PDF).' };
-    const text = (out?.[0]?.result ?? '').trim();
-    return { ok: true, text };
-  } catch (e) {
-    return { ok: false, error: 'Cannot access this page. Try refreshing or use a normal webpage.' };
-  }
+// Custom Morph
+const customInput = document.getElementById('custom-morph-input');
+const customBtn = document.getElementById('custom-morph-btn');
+if (customInput && customBtn) {
+  customBtn.addEventListener('click', async () => {
+    const val = customInput.value.trim();
+    if (!val) return;
+    customBtn.disabled = true; customBtn.textContent = '...';
+    await runMorph(val);
+    customBtn.disabled = false; customBtn.textContent = 'Go';
+  });
 }
 
-// --- UI: AI Interaction ---
+// --- UI: Chat & Summarize ---
 const resultBox = document.getElementById('ai-result-box');
 const chatInputGroup = document.getElementById('ai-chat-input-group');
 const chatInput = document.getElementById('ai-chat-input');
@@ -223,10 +301,8 @@ const chatSend = document.getElementById('ai-chat-send');
 function showAiResult(content, isError = false) {
   resultBox.classList.remove('hidden', 'error');
   if (isError) {
-    resultBox.classList.add('error');
-    resultBox.textContent = content;
+    resultBox.classList.add('error'); resultBox.textContent = content;
   } else {
-    // Naively convert bullet points to an unordered list
     if (content.includes('* ') || content.includes('- ')) {
       const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
       resultBox.innerHTML = `<ul>${listItems}</ul>`;
@@ -242,123 +318,77 @@ function showAiLoader() {
   resultBox.textContent = 'Thinking...';
 }
 
-// --- UI: AI Summarize ---
 document.getElementById('ai-summarize').addEventListener('click', async () => {
   showAiLoader();
   const page = await getPageText();
-  if (!page.ok) {
-    showAiResult('Summarize: ' + page.error, true);
-    return;
-  }
-  if (!page.text) {
-    showAiResult('No text could be extracted from this page. Try a different page.', true);
-    return;
-  }
-  const sys = 'You are a helpful assistant. Summarize the following webpage in 3–5 short bullet points in simple language. Output only the bullets, no extra intro.';
-  const prompt = sys + '\n\n---\n\n' + page.text;
-  const r = await callGemini(prompt);
-  if (r.ok) showAiResult(r.text);
-  else showAiResult('Summarize failed: ' + r.error, true);
+  if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
+  const r = await callGemini('Summarize this webpage in 3–5 short bullet points.\n\n' + page.text);
+  if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
 });
 
-// --- UI: Chat / Q&A ---
 async function runChat() {
     const q = chatInput.value.trim();
     if (q === '') return;
-
     showAiLoader();
     chatInput.value = '';
-
     const page = await getPageText();
-    if (!page.ok) {
-        showAiResult('Q&A: ' + page.error, true);
-        return;
-    }
-
-    const context = page.text || '(No page text available.)';
-    const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
-    const r = await callGemini(prompt);
-
-    // Show the input again after getting a response
+    if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
+    const r = await callGemini(`Answer based on page: "${q}"\n\n${page.text}`);
     chatInputGroup.classList.remove('hidden');
-
-    if (r.ok) showAiResult(r.text);
-    else showAiResult('Q&A failed: ' + r.error, true);
+    if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
 }
 
 document.getElementById('ai-chat').addEventListener('click', () => {
-  resultBox.classList.add('hidden'); // Hide any previous result
+  resultBox.classList.add('hidden');
   const isHidden = chatInputGroup.classList.toggle('hidden');
-  if (!isHidden) {
-    chatInput.focus();
-  }
+  if (!isHidden) chatInput.focus();
 });
 
 chatSend.addEventListener('click', runChat);
 chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        runChat();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); runChat(); }
 });
 
-// --- UI: Accessibility collapsible ---
-const accHeader = document.getElementById('acc-header');
-const accBody = document.getElementById('acc-body');
-accHeader.addEventListener('click', () => {
-  const open = accBody.classList.toggle('open');
-  accHeader.classList.toggle('open', open);
-  accHeader.setAttribute('aria-expanded', open);
-});
-
-// --- UI: Dyslexia toggle ---
-document.getElementById('dyslexia-toggle').addEventListener('click', async () => {
+// --- ACCESSIBILITY TOGGLES ---
+document.getElementById('dyslexia-toggle').addEventListener('click', () => {
   state.dyslexia = !state.dyslexia;
   saveState();
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-  document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
-  setPageState('morphed');
+  refreshGlobalStyles();
 });
 
-// --- UI: High Contrast toggle ---
-document.getElementById('high-contrast-toggle').addEventListener('click', async () => {
+document.getElementById('high-contrast-toggle').addEventListener('click', () => {
   state.highContrast = !state.highContrast;
   saveState();
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-  document.getElementById('high-contrast-toggle').setAttribute('aria-checked', state.highContrast);
-  setPageState('morphed');
+  refreshGlobalStyles();
 });
 
-// --- UI: Color Blindness ---
-document.getElementById('color-blindness').addEventListener('change', async (e) => {
+document.getElementById('color-blindness').addEventListener('change', (e) => {
   state.colorBlindness = e.target.value;
   saveState();
-  setPageState('morphed');
+  refreshGlobalStyles();
 });
 
-// --- UI: Mic (placeholder: could open voice UI or run voice-related logic) ---
-document.getElementById('mic-btn').addEventListener('click', () => {
-  // Placeholder: e.g. open a small voice-input UI or trigger Web Speech API in sidepanel
-  console.log('Voice input placeholder');
+// --- Close & Misc ---
+document.getElementById('close-btn').addEventListener('click', () => {
+  try { window.close(); } catch (_) {}
 });
 
-// --- Progress bar: optional reading progress from active tab ---
-function setProgress(pct) {
-  const el = document.getElementById('progress-fill');
-  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
-}
-// Default: show a subtle “ready” state
-setProgress(0);
-
-// --- Init: load saved state and apply to UI ---
-loadState().then(() => {
-  setScope(state.scope);
+document.getElementById('safe-mode-toggle').addEventListener('click', () => {
+  state.safeMode = !state.safeMode;
+  saveState();
   document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
-  document.getElementById('safe-mode-toggle').setAttribute('aria-checked', state.safeMode);
+});
+
+// --- Initialization ---
+loadState().then(() => {
   document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-  document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-  document.getElementById('high-contrast-toggle').setAttribute('aria-checked', state.highContrast);
+  document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
   document.getElementById('color-blindness').value = state.colorBlindness;
+  
+  // Apply saved styles immediately on load
+  refreshGlobalStyles();
 });
