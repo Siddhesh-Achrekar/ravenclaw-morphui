@@ -61,33 +61,6 @@
     }
     .close-btn:hover { background: var(--border); color: var(--text); }
 
-    /* ---- Scope Toggles ---- */
-    .scope-toggles {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .scope-btn {
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      border: 1px solid transparent;
-      cursor: pointer;
-      background: var(--card-bg);
-      color: var(--text-dim);
-      transition: all 0.2s;
-    }
-    .scope-btn.active-site {
-      background: rgba(34, 197, 94, 0.2);
-      color: var(--success);
-      border-color: rgba(34, 197, 94, 0.4);
-    }
-    .scope-btn.active-global {
-      background: rgba(148, 163, 184, 0.15);
-      color: var(--text);
-      border-color: var(--border);
-    }
 
     /* ---- Morph Button ---- */
     .morph-btn {
@@ -147,6 +120,26 @@
       transition: transform 0.2s;
     }
     .toggle.on::after { transform: translateX(20px); }
+
+    .toggle-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .toggle-btn.selected {
+    background: var(--gradient-hero);
+    color: var(--bg);
+    border-color: var(--gradient-hero);
+  }
+  .toggle-btn:hover {
+    border-color: var(--primary);
+  }
 
     /* ---- Section labels ---- */
     .section-label {
@@ -359,10 +352,10 @@
     </button>
   </header>
 
-  <!-- Scope: Active on this site | Global -->
-  <div class="scope-toggles">
-    <button id="scope-site" class="scope-btn active-site">Active on this site</button>
-    <button id="scope-global" class="scope-btn">Global</button>
+  <!-- Morph Toggle: Morphed / Original -->
+  <div class="morph-toggle" style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button id="morphed-btn" class="toggle-btn selected">Morphed</button>
+    <button id="original-btn" class="toggle-btn">Original</button>
   </div>
 
   <!-- Morph This Page -->

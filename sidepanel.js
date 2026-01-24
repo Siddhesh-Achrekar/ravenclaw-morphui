@@ -91,7 +91,25 @@ let state = {
   dyslexia: false,
   highContrast: false,
   colorBlindness: 'none',
+  pageState: 'morphed',
 };
+
+function setPageState(newState) {
+  state.pageState = newState;
+  saveState();
+
+  // Highlight buttons
+  document.getElementById('morphed-btn').classList.toggle('selected', newState === 'morphed');
+  document.getElementById('original-btn').classList.toggle('selected', newState === 'original');
+
+  // Apply or remove morph
+  if (newState === 'morphed') runMorph();
+  else {
+    // Remove injected style
+    const oldStyle = document.getElementById(MORPH_STYLE_ID);
+    if (oldStyle) oldStyle.remove();
+  }
+}
 
 async function loadState() {
   try {
@@ -150,16 +168,6 @@ document.getElementById('close-btn').addEventListener('click', () => {
   try { window.close(); } catch (_) {}
 });
 
-// --- UI: Scope toggles ---
-function setScope(s) {
-  state.scope = s;
-  saveState();
-  document.getElementById('scope-site').className = 'scope-btn ' + (s === 'site' ? 'active-site' : '');
-  document.getElementById('scope-global').className = 'scope-btn ' + (s === 'global' ? 'active-global' : '');
-}
-document.getElementById('scope-site').addEventListener('click', () => setScope('site'));
-document.getElementById('scope-global').addEventListener('click', () => setScope('global'));
-
 // --- UI: Safe Mode toggle ---
 document.getElementById('safe-mode-toggle').addEventListener('click', () => {
   state.safeMode = !state.safeMode;
@@ -214,92 +222,38 @@ async function getPageText() {
   }
 }
 
-// --- UI: AI Interaction ---
-const resultBox = document.getElementById('ai-result-box');
-const chatInputGroup = document.getElementById('ai-chat-input-group');
-const chatInput = document.getElementById('ai-chat-input');
-const chatSend = document.getElementById('ai-chat-send');
-
-function showAiResult(content, isError = false) {
-  resultBox.classList.remove('hidden', 'error');
-  if (isError) {
-    resultBox.classList.add('error');
-    resultBox.textContent = content;
-  } else {
-    // Naively convert bullet points to an unordered list
-    if (content.includes('* ') || content.includes('- ')) {
-      const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
-      resultBox.innerHTML = `<ul>${listItems}</ul>`;
-    } else {
-      resultBox.textContent = content;
-    }
-  }
-}
-
-function showAiLoader() {
-  chatInputGroup.classList.add('hidden');
-  resultBox.classList.remove('hidden', 'error');
-  resultBox.textContent = 'Thinking...';
-}
-
 // --- UI: AI Summarize ---
 document.getElementById('ai-summarize').addEventListener('click', async () => {
-  showAiLoader();
   const page = await getPageText();
   if (!page.ok) {
-    showAiResult('Summarize: ' + page.error, true);
+    alert('Summarize: ' + page.error);
     return;
   }
   if (!page.text) {
-    showAiResult('No text could be extracted from this page. Try a different page.', true);
+    alert('No text could be extracted from this page. Try a different page.');
     return;
   }
   const sys = 'You are a helpful assistant. Summarize the following webpage in 3–5 short bullet points in simple language. Output only the bullets, no extra intro.';
   const prompt = sys + '\n\n---\n\n' + page.text;
   const r = await callGemini(prompt);
-  if (r.ok) showAiResult(r.text);
-  else showAiResult('Summarize failed: ' + r.error, true);
+  if (r.ok) alert('Summary:\n\n' + r.text);
+  else alert('Summarize failed: ' + r.error);
 });
 
 // --- UI: Chat / Q&A ---
-async function runChat() {
-    const q = chatInput.value.trim();
-    if (q === '') return;
-
-    showAiLoader();
-    chatInput.value = '';
-
-    const page = await getPageText();
-    if (!page.ok) {
-        showAiResult('Q&A: ' + page.error, true);
-        return;
-    }
-
-    const context = page.text || '(No page text available.)';
-    const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
-    const r = await callGemini(prompt);
-
-    // Show the input again after getting a response
-    chatInputGroup.classList.remove('hidden');
-
-    if (r.ok) showAiResult(r.text);
-    else showAiResult('Q&A failed: ' + r.error, true);
-}
-
-document.getElementById('ai-chat').addEventListener('click', () => {
-  resultBox.classList.add('hidden'); // Hide any previous result
-  const isHidden = chatInputGroup.classList.toggle('hidden');
-  if (!isHidden) {
-    chatInput.focus();
+document.getElementById('ai-chat').addEventListener('click', async () => {
+  const q = window.prompt('Ask a question about this page:');
+  if (q == null || String(q).trim() === '') return;
+  const page = await getPageText();
+  if (!page.ok) {
+    alert('Q&A: ' + page.error);
+    return;
   }
-});
-
-chatSend.addEventListener('click', runChat);
-chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        runChat();
-    }
+  const context = page.text || '(No page text available.)';
+  const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
+  const r = await callGemini(prompt);
+  if (r.ok) alert('Answer:\n\n' + r.text);
+  else alert('Q&A failed: ' + r.error);
 });
 
 // --- UI: Accessibility collapsible ---
@@ -335,6 +289,10 @@ document.getElementById('color-blindness').addEventListener('change', async (e) 
   saveState();
   runMorph();
 });
+
+// --- UI: Morphed / Original toggle ---
+document.getElementById('morphed-btn').addEventListener('click', () => setPageState('morphed'));
+document.getElementById('original-btn').addEventListener('click', () => setPageState('original'));
 
 // --- UI: Mic (placeholder: could open voice UI or run voice-related logic) ---
 document.getElementById('mic-btn').addEventListener('click', () => {
