@@ -83,6 +83,17 @@ function applyMorphInPage(styleId, modeCss, accCss, runKidsDom) {
   }
 }
 
+// --- Injected function: Removes styles and resets inline changes ---
+function removeMorphInPage(styleId) {
+  const old = document.getElementById(styleId);
+  if (old) old.remove();
+  document.querySelectorAll('a, button, [role="button"]').forEach(function (el) {
+    el.style.removeProperty('background');
+    el.style.removeProperty('color');
+    el.style.removeProperty('border');
+  });
+}
+
 // --- State ---
 let state = {
   scope: 'site',
@@ -99,15 +110,22 @@ function setPageState(newState) {
   saveState();
 
   // Highlight buttons
-  document.getElementById('morphed-btn').classList.toggle('selected', newState === 'morphed');
-  document.getElementById('original-btn').classList.toggle('selected', newState === 'original');
+  const morphedBtn = document.getElementById('morphed-btn');
+  const originalBtn = document.getElementById('original-btn');
+  
+  if (morphedBtn) morphedBtn.classList.toggle('selected', newState === 'morphed');
+  if (originalBtn) originalBtn.classList.toggle('selected', newState === 'original');
 
-  // Apply or remove morph
-  if (newState === 'morphed') runMorph();
-  else {
-    // Remove injected style
-    const oldStyle = document.getElementById(MORPH_STYLE_ID);
-    if (oldStyle) oldStyle.remove();
+  if (newState === 'morphed') {
+    // Highlight the active mode card
+    document.querySelectorAll('.mode-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.mode === state.mode);
+    });
+    runMorph();
+  } else {
+    // Original: Deselect mode cards and remove styles
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    runOnActiveTab(removeMorphInPage, [MORPH_STYLE_ID]);
   }
 }
 
@@ -180,9 +198,7 @@ document.getElementById('safe-mode-toggle').addEventListener('click', () => {
 document.querySelectorAll('.mode-card').forEach(card => {
   card.addEventListener('click', () => {
     state.mode = card.dataset.mode;
-    saveState();
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
+    setPageState('morphed');
   });
 });
 
@@ -313,7 +329,7 @@ loadState().then(() => {
   setScope(state.scope);
   document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
   document.getElementById('safe-mode-toggle').setAttribute('aria-checked', state.safeMode);
-  document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
+  setPageState(state.pageState);
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
   document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
