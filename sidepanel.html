@@ -207,6 +207,62 @@
     }
     .ai-btn:hover { border-color: rgba(139, 92, 246, 0.5); background: rgba(30, 41, 59, 0.8); }
 
+    /* ---- AI Interaction Area ---- */
+    .ai-result-box {
+      background: #1f2937;
+      border: 1px solid #374151;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-top: 16px;
+      margin-bottom: 12px;
+      word-wrap: break-word;
+    }
+    .ai-result-box.error {
+      color: #fca5a5;
+    }
+    .ai-result-box ul {
+      padding-left: 20px;
+      margin: 8px 0 0 0;
+    }
+    .ai-result-box li {
+      margin-bottom: 6px;
+    }
+    .ai-chat-input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 16px;
+      margin-bottom: 12px;
+    }
+    #ai-chat-input {
+      flex-grow: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      outline: none;
+    }
+    #ai-chat-input:focus {
+      border-color: var(--primary);
+      box-shadow: var(--glow);
+    }
+    #ai-chat-send {
+      padding: 8px 12px;
+      background: var(--primary);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    #ai-chat-send:hover { opacity: 0.85; }
+    .hidden { display: none !important; }
+
     /* ---- Accessibility (collapsible) ---- */
     .acc-header {
       width: 100%;
@@ -360,6 +416,15 @@
       <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Chat / Q&A
     </button>
+  </div>
+
+  <!-- AI Interaction Area -->
+  <div id="ai-interaction-area">
+    <div id="ai-result-box" class="ai-result-box hidden"></div>
+    <div id="ai-chat-input-group" class="ai-chat-input-group hidden">
+      <input type="text" id="ai-chat-input" placeholder="Ask a question...">
+      <button id="ai-chat-send">Send</button>
+    </div>
   </div>
 
   <!-- Custom Morph  -->

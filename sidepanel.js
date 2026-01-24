@@ -214,38 +214,92 @@ async function getPageText() {
   }
 }
 
+// --- UI: AI Interaction ---
+const resultBox = document.getElementById('ai-result-box');
+const chatInputGroup = document.getElementById('ai-chat-input-group');
+const chatInput = document.getElementById('ai-chat-input');
+const chatSend = document.getElementById('ai-chat-send');
+
+function showAiResult(content, isError = false) {
+  resultBox.classList.remove('hidden', 'error');
+  if (isError) {
+    resultBox.classList.add('error');
+    resultBox.textContent = content;
+  } else {
+    // Naively convert bullet points to an unordered list
+    if (content.includes('* ') || content.includes('- ')) {
+      const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
+      resultBox.innerHTML = `<ul>${listItems}</ul>`;
+    } else {
+      resultBox.textContent = content;
+    }
+  }
+}
+
+function showAiLoader() {
+  chatInputGroup.classList.add('hidden');
+  resultBox.classList.remove('hidden', 'error');
+  resultBox.textContent = 'Thinking...';
+}
+
 // --- UI: AI Summarize ---
 document.getElementById('ai-summarize').addEventListener('click', async () => {
+  showAiLoader();
   const page = await getPageText();
   if (!page.ok) {
-    alert('Summarize: ' + page.error);
+    showAiResult('Summarize: ' + page.error, true);
     return;
   }
   if (!page.text) {
-    alert('No text could be extracted from this page. Try a different page.');
+    showAiResult('No text could be extracted from this page. Try a different page.', true);
     return;
   }
   const sys = 'You are a helpful assistant. Summarize the following webpage in 3–5 short bullet points in simple language. Output only the bullets, no extra intro.';
   const prompt = sys + '\n\n---\n\n' + page.text;
   const r = await callGemini(prompt);
-  if (r.ok) alert('Summary:\n\n' + r.text);
-  else alert('Summarize failed: ' + r.error);
+  if (r.ok) showAiResult(r.text);
+  else showAiResult('Summarize failed: ' + r.error, true);
 });
 
 // --- UI: Chat / Q&A ---
-document.getElementById('ai-chat').addEventListener('click', async () => {
-  const q = window.prompt('Ask a question about this page:');
-  if (q == null || String(q).trim() === '') return;
-  const page = await getPageText();
-  if (!page.ok) {
-    alert('Q&A: ' + page.error);
-    return;
+async function runChat() {
+    const q = chatInput.value.trim();
+    if (q === '') return;
+
+    showAiLoader();
+    chatInput.value = '';
+
+    const page = await getPageText();
+    if (!page.ok) {
+        showAiResult('Q&A: ' + page.error, true);
+        return;
+    }
+
+    const context = page.text || '(No page text available.)';
+    const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
+    const r = await callGemini(prompt);
+
+    // Show the input again after getting a response
+    chatInputGroup.classList.remove('hidden');
+
+    if (r.ok) showAiResult(r.text);
+    else showAiResult('Q&A failed: ' + r.error, true);
+}
+
+document.getElementById('ai-chat').addEventListener('click', () => {
+  resultBox.classList.add('hidden'); // Hide any previous result
+  const isHidden = chatInputGroup.classList.toggle('hidden');
+  if (!isHidden) {
+    chatInput.focus();
   }
-  const context = page.text || '(No page text available.)';
-  const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
-  const r = await callGemini(prompt);
-  if (r.ok) alert('Answer:\n\n' + r.text);
-  else alert('Q&A failed: ' + r.error);
+});
+
+chatSend.addEventListener('click', runChat);
+chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        runChat();
+    }
 });
 
 // --- UI: Accessibility collapsible ---
