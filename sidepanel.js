@@ -2,6 +2,62 @@
 import { env } from './config.js';
 
 const MORPH_STYLE_ID = 'morph-ui-injected';
+const MODEL = env.GEMINI_MODEL || 'gemini-1.5-flash';
+
+// --- Gemini API: single place for fetch, error handling, response parsing ---
+async function callGemini(prompt) {
+  const key = env.GEMINI_API_KEY;
+  const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
+  if (!key || !base) {
+    return { ok: false, error: 'Missing GEMINI_API_KEY or BASE_URL in config.js' };
+  }
+  const url = `${base}/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 2048,
+          topP: 0.95,
+        },
+      }),
+    });
+  } catch (e) {
+    return { ok: false, error: 'Network error: ' + (e.message || 'Could not reach Gemini API.') };
+  }
+  let data;
+  try {
+    data = await res.json();
+  } catch (_) {
+    return { ok: false, error: 'Invalid JSON in API response.' };
+  }
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error?.status || res.statusText || 'Request failed';
+    return { ok: false, error: `API error (${res.status}): ${msg}` };
+  }
+  if (data?.error) {
+    return { ok: false, error: data.error.message || JSON.stringify(data.error) };
+  }
+  const block = data?.promptFeedback?.blockReason;
+  if (block) {
+    return { ok: false, error: 'Content was blocked: ' + block };
+  }
+  const cand = data?.candidates?.[0];
+  if (!cand) {
+    return { ok: false, error: 'No response from the model. Try a different prompt or model.' };
+  }
+  const part = cand?.content?.parts?.[0];
+  const text = part?.text;
+  if (text == null || text === '') {
+    const reason = cand?.finishReason || 'Unknown';
+    return { ok: false, error: 'Empty response (finishReason: ' + reason + ').' };
+  }
+  return { ok: true, text: String(text).trim() };
+}
 
 // --- Run code on the active tab (func runs in PAGE context; only args are passed) ---
 async function runOnActiveTab(fn, args = []) {
@@ -86,7 +142,7 @@ function runMorph() {
   const modeCss = buildModeCss();
   const accCss = buildAccCss();
   const runKidsDom = state.mode === 'kids' && !state.safeMode;
-  runOnActiveTab(applyMorphInPage, [MORPH_STYLE_ID, modeCss, accCss, runKidsDom]);
+  return runOnActiveTab(applyMorphInPage, [MORPH_STYLE_ID, modeCss, accCss, runKidsDom]);
 }
 
 // --- UI: Close ---
@@ -128,64 +184,68 @@ document.getElementById('morph-btn').addEventListener('click', async () => {
   btn.disabled = true;
   btn.querySelector('span').textContent = 'Morphing...';
   try {
-    runMorph();
+    await runMorph();
   } catch (e) {
     console.error('Morph error:', e);
+    alert('Morph failed: cannot modify this page (e.g. chrome:// or restricted). Try a normal website.');
   }
   btn.disabled = false;
   btn.querySelector('span').textContent = 'Morph This Page';
 });
 
+// --- Get page text from active tab; returns { ok, text?, error? } ---
+async function getPageText() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: 'No active tab.' };
+  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\//i.test(tab.url)) {
+    return { ok: false, error: 'Cannot read browser internal pages (e.g. chrome://). Open a normal website.' };
+  }
+  try {
+    const out = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (document.body && document.body.innerText ? String(document.body.innerText).slice(0, 8000) : ''),
+    });
+    const err = out?.[0]?.error;
+    if (err) return { ok: false, error: 'Cannot read this page (e.g. restricted or PDF).' };
+    const text = (out?.[0]?.result ?? '').trim();
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, error: 'Cannot access this page. Try refreshing or use a normal webpage.' };
+  }
+}
+
 // --- UI: AI Summarize ---
 document.getElementById('ai-summarize').addEventListener('click', async () => {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-    const out = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (document.body && document.body.innerText ? document.body.innerText.slice(0, 4000) : ''),
-    });
-    const result = out?.[0]?.result ?? '';
-    const prompt = `Summarize this webpage in 3–5 short bullet points in simple language:\n\n${result}`;
-    const res = await fetch(`${env.BASE_URL}/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to get summary.';
-    alert('Summary:\n\n' + text);
-  } catch (e) {
-    console.error('Summarize error:', e);
-    alert('Summarize failed. Check API key and connection.');
+  const page = await getPageText();
+  if (!page.ok) {
+    alert('Summarize: ' + page.error);
+    return;
   }
+  if (!page.text) {
+    alert('No text could be extracted from this page. Try a different page.');
+    return;
+  }
+  const sys = 'You are a helpful assistant. Summarize the following webpage in 3–5 short bullet points in simple language. Output only the bullets, no extra intro.';
+  const prompt = sys + '\n\n---\n\n' + page.text;
+  const r = await callGemini(prompt);
+  if (r.ok) alert('Summary:\n\n' + r.text);
+  else alert('Summarize failed: ' + r.error);
 });
 
-// --- UI: Chat / Q&A (simple: prompt for a question and answer from page content) ---
+// --- UI: Chat / Q&A ---
 document.getElementById('ai-chat').addEventListener('click', async () => {
-  const q = prompt('Ask a question about this page:');
-  if (!q) return;
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-    const out = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (document.body && document.body.innerText ? document.body.innerText.slice(0, 4000) : ''),
-    });
-    const result = out?.[0]?.result ?? '';
-    const prompt = `Based only on this page content, answer briefly: "${q}"\n\nPage:\n${result}`;
-    const res = await fetch(`${env.BASE_URL}/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No answer.';
-    alert('Answer:\n\n' + text);
-  } catch (e) {
-    console.error('Chat error:', e);
-    alert('Q&A failed. Check API key and connection.');
+  const q = window.prompt('Ask a question about this page:');
+  if (q == null || String(q).trim() === '') return;
+  const page = await getPageText();
+  if (!page.ok) {
+    alert('Q&A: ' + page.error);
+    return;
   }
+  const context = page.text || '(No page text available.)';
+  const prompt = `Based only on the following webpage content, answer this question briefly and clearly: "${q}"\n\nWebpage:\n${context}`;
+  const r = await callGemini(prompt);
+  if (r.ok) alert('Answer:\n\n' + r.text);
+  else alert('Q&A failed: ' + r.error);
 });
 
 // --- UI: Accessibility collapsible ---
