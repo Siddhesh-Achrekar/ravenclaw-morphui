@@ -133,6 +133,16 @@ function injectOriginalPageStyles(styleId, newCss) {
   style.textContent = newCss;
 }
 
+function removeMorphOverlay(overlayId) {
+  const host = document.getElementById(overlayId);
+  if (host) host.remove();
+}
+
+function removeOriginalPageStyles(styleId) {
+  const style = document.getElementById(styleId);
+  if (style) style.remove();
+}
+
 // --- Helper: Build Accessibility CSS ---
 // UPDATED: Simply swaps the font to Comic Sans (Dyslexia friendly) and adjusts spacing
 function buildAccCss(isShadow = false) {
@@ -172,7 +182,7 @@ function buildAccCss(isShadow = false) {
 
 // --- State Management ---
 let state = {
-  scope: 'site',
+  view: 'original',
   safeMode: true,
   mode: 'kids',
   dyslexia: false,
@@ -212,6 +222,7 @@ async function getPageText() {
 
 // --- MAIN MORPH FUNCTION (AI Powered) ---
 async function runMorph(customPrompt = null) {
+  setView('morphed', { apply: false });
   let promptInstruction = customPrompt;
   if (!promptInstruction) {
     promptInstruction = MODE_PROMPTS[state.mode] || MODE_PROMPTS['easy-read'];
@@ -252,12 +263,42 @@ async function refreshGlobalStyles() {
   const shadowCss = buildAccCss(true); // true = Shadow DOM mode
   await runOnActiveTab(updateOverlayStyles, [OVERLAY_ID, shadowCss]);
 
-  // 2. Update Original Page (always)
+  // 2. Update Original Page (only if not in original mode)
+  if (state.view === 'original') {
+    await runOnActiveTab(removeOriginalPageStyles, [ORIGINAL_STYLE_ID]);
+    return;
+  }
   const originalCss = buildAccCss(false); // false = Standard DOM mode
   await runOnActiveTab(injectOriginalPageStyles, [ORIGINAL_STYLE_ID, originalCss]);
 }
 
+async function setView(view, { apply = true } = {}) {
+  state.view = view;
+  saveState();
+  const morphedBtn = document.getElementById('view-morphed');
+  const originalBtn = document.getElementById('view-original');
+  if (morphedBtn) morphedBtn.classList.toggle('active-morphed', view === 'morphed');
+  if (originalBtn) originalBtn.classList.toggle('active-original', view === 'original');
+
+  if (!apply) return;
+
+  if (view === 'original') {
+    await runOnActiveTab(removeMorphOverlay, [OVERLAY_ID]);
+    await runOnActiveTab(removeOriginalPageStyles, [ORIGINAL_STYLE_ID]);
+  } else {
+    await refreshGlobalStyles();
+  }
+}
+
 // --- UI EVENT LISTENERS ---
+
+// View Toggle: Morphed | Original
+document.getElementById('view-morphed').addEventListener('click', () => {
+  setView('morphed');
+});
+document.getElementById('view-original').addEventListener('click', () => {
+  setView('original');
+});
 
 // Morph Button
 document.getElementById('morph-btn').addEventListener('click', async () => {
@@ -277,6 +318,7 @@ document.querySelectorAll('.mode-card').forEach(card => {
     saveState();
     document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
+    setView('morphed', { apply: false });
   });
 });
 
@@ -389,6 +431,7 @@ loadState().then(() => {
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
   document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
   document.getElementById('color-blindness').value = state.colorBlindness;
+  setView(state.view || 'original');
   
   // Apply saved styles immediately on load
   refreshGlobalStyles();
