@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* MorphUI Design System - Glassmorphism Dark Theme */
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 192 91% 55%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 270 60% 60%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 192 91% 55%;
+    --accent-foreground: 222 47% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 192 91% 55%;
+
+    --radius: 0.75rem;
+
+    /* MorphUI Custom Tokens */
+    --glass-bg: 222 47% 10%;
+    --glass-border: 217 33% 25%;
+    --glow-primary: 192 91% 55%;
+    --glow-secondary: 270 60% 60%;
+    --success: 142 76% 45%;
+    --warning: 38 92% 50%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(192 91% 55%) 0%, hsl(270 60% 60%) 100%);
+    --gradient-glow: linear-gradient(135deg, hsl(192 91% 55% / 0.3) 0%, hsl(270 60% 60% / 0.3) 100%);
+    --gradient-glass: linear-gradient(135deg, hsl(222 47% 12% / 0.9) 0%, hsl(222 47% 8% / 0.95) 100%);
+
+    /* Shadows */
+    --shadow-glow: 0 0 30px hsl(192 91% 55% / 0.3);
+    --shadow-card: 0 8px 32px hsl(222 47% 4% / 0.5);
+    --shadow-fab: 0 4px 20px hsl(192 91% 55% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-glass-border;
+  }
+
+  .glass-strong {
+    @apply bg-card/90 backdrop-blur-2xl border border-glass-border;
+  }
+
+  .glow-border {
+    @apply relative;
+    box-shadow: 0 0 0 1px hsl(var(--glow-primary) / 0.5), var(--shadow-glow);
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-hero);
+  }
+
+  .btn-hero {
+    background: var(--gradient-hero);
+    @apply text-primary-foreground font-semibold shadow-lg transition-all duration-300;
+  }
+
+  .btn-hero:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
+  }
+
+  .mode-card {
+    @apply glass p-4 rounded-xl cursor-pointer transition-all duration-300;
+  }
+
+  .mode-card:hover {
+    @apply border-primary/50;
+  }
+
+  .mode-card.active {
+    @apply glow-border;
+  }
+
+  .pill-toggle {
+    @apply px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200;
+  }
+
+  .pill-toggle.active {
+    background-color: hsl(var(--success) / 0.2);
+    color: hsl(var(--success));
+    border: 1px solid hsl(var(--success) / 0.3);
+  }
+
+  .pill-toggle.inactive {
+    @apply bg-muted text-muted-foreground border border-transparent;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 10px hsl(var(--glow-primary) / 0.3);
+    }
+    to {
+      box-shadow: 0 0 25px hsl(var(--glow-primary) / 0.5);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Modern Themed Scrollbar */
+  .scrollbar-morph {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.4) hsl(var(--muted) / 0.3);
+  }
+
+  .scrollbar-morph::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-morph::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.2);
+    border-radius: 3px;
+  }
+
+  .scrollbar-morph::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--primary) / 0.5) 0%,
+      hsl(var(--secondary) / 0.5) 100%
+    );
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+
+  .scrollbar-morph::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--primary) / 0.7) 0%,
+      hsl(var(--secondary) / 0.7) 100%
+    );
+  }
+}
