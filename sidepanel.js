@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       isListening = true;
       micBtn.classList.add('listening');
-      micBtn.disabled = true;
+      micBtn.disabled = false;
 
       function startRecognition() {
         const recognition = new SpeechRec();
