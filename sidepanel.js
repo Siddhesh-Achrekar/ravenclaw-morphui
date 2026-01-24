@@ -354,20 +354,37 @@ document.getElementById('dyslexia-toggle').addEventListener('click', () => {
   state.dyslexia = !state.dyslexia;
   saveState();
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
+<<<<<<< HEAD
   refreshGlobalStyles();
+=======
+  document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
+  runMorph();
+  setPageState('morphed');
+>>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 document.getElementById('high-contrast-toggle').addEventListener('click', () => {
   state.highContrast = !state.highContrast;
   saveState();
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
+<<<<<<< HEAD
   refreshGlobalStyles();
+=======
+  document.getElementById('high-contrast-toggle').setAttribute('aria-checked', state.highContrast);
+  runMorph();
+  setPageState('morphed');
+>>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 document.getElementById('color-blindness').addEventListener('change', (e) => {
   state.colorBlindness = e.target.value;
   saveState();
+<<<<<<< HEAD
   refreshGlobalStyles();
+=======
+  runMorph();
+  setPageState('morphed');
+>>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 // --- Close & Misc ---
