@@ -164,10 +164,45 @@ function buildAccCss(isShadow = false) {
   }
   
   // High Contrast
-  if (state.highContrast) {
-    const target = isShadow ? ':host *' : '*';
-    acc += `${target} { border: 1px solid rgba(255,255,255,0.5) !important; background-color: black !important; color: white !important; } a { color: #FFFF00 !important; }`;
-  }
+  if (state.highContrast) acc += `
+    html, body {
+      background: #000 !important;
+      color: #fff !important;
+    }
+
+    * {
+      background: transparent !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+
+    p, span, li, div {
+      color: #fff !important;
+    }
+
+    a {
+      color: #00ffff !important;
+      text-decoration: underline !important;
+      font-weight: bold !important;
+    }
+
+    button, [role="button"], input, select {
+      background: #000 !important;
+      color: #fff !important;
+      border: 2px solid #fff !important;
+      border-radius: 6px !important;
+    }
+
+    img, video {
+      filter: brightness(0.85) contrast(1.2) !important;
+    }
+
+    :focus {
+      outline: 3px solid yellow !important;
+      outline-offset: 2px;
+    }
+  `;
+
   
   // Color Blindness Filters
   const cb = state.colorBlindness;
