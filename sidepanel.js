@@ -222,7 +222,7 @@ async function getPageText() {
 
 // --- MAIN MORPH FUNCTION (AI Powered) ---
 async function runMorph(customPrompt = null) {
-  setView('morphed', { apply: false });
+  setView('morphed');
   let promptInstruction = customPrompt;
   if (!promptInstruction) {
     promptInstruction = MODE_PROMPTS[state.mode] || MODE_PROMPTS['easy-read'];
@@ -318,7 +318,7 @@ document.querySelectorAll('.mode-card').forEach(card => {
     saveState();
     document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
-    setView('morphed', { apply: false });
+    setView('morphed');
   });
 });
 
@@ -397,20 +397,20 @@ document.getElementById('dyslexia-toggle').addEventListener('click', () => {
   state.dyslexia = !state.dyslexia;
   saveState();
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-  refreshGlobalStyles();
+  setView('morphed');
 });
 
 document.getElementById('high-contrast-toggle').addEventListener('click', () => {
   state.highContrast = !state.highContrast;
   saveState();
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-  refreshGlobalStyles();
+  setView('morphed');
 });
 
 document.getElementById('color-blindness').addEventListener('change', (e) => {
   state.colorBlindness = e.target.value;
   saveState();
-  refreshGlobalStyles();
+  setView('morphed');
 });
 
 // --- Close & Misc ---
