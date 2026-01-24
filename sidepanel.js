@@ -317,7 +317,7 @@ document.getElementById('dyslexia-toggle').addEventListener('click', async () =>
   saveState();
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
   document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
-  runMorph();
+  setPageState('morphed');
 });
 
 // --- UI: High Contrast toggle ---
@@ -326,14 +326,14 @@ document.getElementById('high-contrast-toggle').addEventListener('click', async 
   saveState();
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
   document.getElementById('high-contrast-toggle').setAttribute('aria-checked', state.highContrast);
-  runMorph();
+  setPageState('morphed');
 });
 
 // --- UI: Color Blindness ---
 document.getElementById('color-blindness').addEventListener('change', async (e) => {
   state.colorBlindness = e.target.value;
   saveState();
-  runMorph();
+  setPageState('morphed');
 });
 
 // --- UI: Mic (placeholder: could open voice UI or run voice-related logic) ---
