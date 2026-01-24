@@ -2,7 +2,7 @@
 import { env } from './config.js';
 
 const MORPH_STYLE_ID = 'morph-ui-injected';
-const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // --- Gemini API: single place for fetch, error handling, response parsing ---
 async function callGemini(prompt) {
