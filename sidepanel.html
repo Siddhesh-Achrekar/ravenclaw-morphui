@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+      --primary: #38bdf8;
+      --secondary: #a78bfa;
+      --success: #22c55e;
+      --gradient-hero: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      --gradient-bar: linear-gradient(90deg, #38bdf8 0%, #a78bfa 100%);
+      --border: #334155;
+      --glow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: var(--gradient-hero);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--card-bg);
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .close-btn:hover { background: var(--border); color: var(--text); }
+
+    /* ---- Scope Toggles ---- */
+    .scope-toggles {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .scope-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: var(--card-bg);
+      color: var(--text-dim);
+      transition: all 0.2s;
+    }
+    .scope-btn.active-site {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+    .scope-btn.active-global {
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    /* ---- Morph Button ---- */
+    .morph-btn {
+      width: 100%;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 12px;
+      background: var(--gradient-hero);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .morph-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
+    }
+    .morph-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    /* ---- Safe Mode ---- */
+    .safe-mode {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+    .safe-mode span { display: flex; align-items: center; gap: 8px; }
+
+    /* Toggle switch */
+    .toggle {
+      width: 44px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--border);
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .toggle.on { background: #3b82f6; }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
+    /* ---- Section labels ---- */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    /* ---- Mode Grid ---- */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .mode-card {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .mode-card:hover { border-color: rgba(59, 130, 246, 0.4); }
+    .mode-card.selected {
+      border-color: #3b82f6;
+      box-shadow: var(--glow);
+    }
+    .mode-card .icon { margin-bottom: 6px; }
+    .mode-card .name { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+    .mode-card .desc { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+
+    /* ---- AI Agent ---- */
+    .ai-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .ai-btn {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .ai-btn:hover { border-color: rgba(139, 92, 246, 0.5); background: rgba(30, 41, 59, 0.8); }
+
+    /* ---- Accessibility (collapsible) ---- */
+    .acc-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .acc-header .chevron {
+      transition: transform 0.2s;
+      color: var(--text-dim);
+    }
+    .acc-header.open .chevron { transform: rotate(180deg); }
+    .acc-body {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.25s ease;
+    }
+    .acc-body.open { max-height: 200px; }
+    .acc-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+    .acc-row .label { color: var(--text); }
+    .acc-select {
+      min-width: 100px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    /* ---- Footer ---- */
+    .footer { margin-top: auto; padding-top: 16px; }
+    .footer .mic-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .mic-btn:hover { background: var(--border); }
+    .powered { text-align: center; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px; }
+    .progress-wrap {
+      height: 4px;
+      background: var(--card-bg);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--gradient-bar);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    /* Icon sizes */
+    .icon-sm { width: 18px; height: 18px; flex-shrink: 0; }
+    .icon-md { width: 20px; height: 20px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>MorphUI</h1>
+    <button id="close-btn" class="close-btn" aria-label="Close">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </header>
+
+  <!-- Scope: Active on this site | Global -->
+  <div class="scope-toggles">
+    <button id="scope-site" class="scope-btn active-site">Active on this site</button>
+    <button id="scope-global" class="scope-btn">Global</button>
+  </div>
+
+  <!-- Morph This Page -->
+  <button id="morph-btn" class="morph-btn">
+    <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 1 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937a2 2 0 0 1 1.437-1.437l1.582-6.135a.5.5 0 0 1 .963 0l1.582 6.135a2 2 0 0 1 1.437 1.437l6.135 1.582a.5.5 0 0 1 0 .963l-6.135 1.582a2 2 0 0 1-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+    <span>Morph This Page</span>
+  </button>
+
+  <!-- Safe Mode -->
+  <div class="safe-mode">
+    <span>
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Safe Mode (Protect Forms)
+    </span>
+    <div id="safe-mode-toggle" class="toggle on" role="switch" aria-checked="true"></div>
+  </div>
+
+  <!-- Mode Selection -->
+  <span class="section-label">Mode Selection</span>
+  <div class="mode-grid">
+    <div id="mode-easy-read" class="mode-card" data-mode="easy-read">
+      <div class="icon"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></div>
+      <div class="name">Easy Read</div>
+      <div class="desc">Simple & Clean</div>
+    </div>
+    <div id="mode-focus" class="mode-card" data-mode="focus">
+      <div class="icon"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div class="name">Focus Mode</div>
+      <div class="desc">No Distractions</div>
+    </div>
+    <div id="mode-power" class="mode-card" data-mode="power">
+      <div class="icon"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+      <div class="name">Power Mode</div>
+      <div class="desc">Dense Data</div>
+    </div>
+    <div id="mode-kids" class="mode-card selected" data-mode="kids">
+      <div class="icon"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg></div>
+      <div class="name">Kids Mode</div>
+      <div class="desc">Fun & Colorful</div>
+    </div>
+  </div>
+
+  <!-- AI Agent -->
+  <span class="section-label">AI Agent</span>
+  <div class="ai-grid">
+    <button id="ai-summarize" class="ai-btn">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+      Summarize Page
+    </button>
+    <button id="ai-chat" class="ai-btn">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Chat / Q&A
+    </button>
+  </div>
+
+  <!-- Accessibility Controls (collapsible) -->
+  <button id="acc-header" class="acc-header open" aria-expanded="true">
+    <span>Accessibility Controls</span>
+    <svg class="chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div id="acc-body" class="acc-body open">
+    <div class="acc-row">
+      <span class="label">Dyslexia Font</span>
+      <div id="dyslexia-toggle" class="toggle" role="switch" aria-checked="false"></div>
+    </div>
+    <div class="acc-row">
+      <span class="label">High Contrast</span>
+      <div id="high-contrast-toggle" class="toggle" role="switch" aria-checked="false"></div>
+    </div>
+    <div class="acc-row">
+      <span class="label">Color Blindness</span>
+      <select id="color-blindness" class="acc-select">
+        <option value="none">None</option>
+        <option value="protanopia">Protanopia</option>
+        <option value="deuteranopia">Deuteranopia</option>
+        <option value="tritanopia">Tritanopia</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="mic-wrap">
+      <button id="mic-btn" class="mic-btn" aria-label="Voice input">
+        <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>
+      </button>
+    </div>
+    <p class="powered">Powered by Gemini 2.5</p>
+    <div class="progress-wrap">
+      <div id="progress-fill" class="progress-fill"></div>
+    </div>
+  </footer>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
