@@ -15,7 +15,8 @@
     "sidePanel",
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "audioCapture"
   ],
   "host_permissions": [
     "https://generativelanguage.googleapis.com/*",

@@ -332,6 +332,8 @@
       transition: background 0.2s;
     }
     .mic-btn:hover { background: var(--border); }
+    .mic-btn.listening { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
+    .mic-btn:disabled { cursor: not-allowed; opacity: 0.9; }
     .powered { text-align: center; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px; }
     .progress-wrap {
       height: 4px;
@@ -428,7 +430,7 @@
       <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Chat / Q&A
     </button>
-    <button id="mic-btn" class="mic-btn" aria-label="Voice input">
+    <button id="mic-btn" class="mic-btn" aria-label="Voice input" title="Voice: speak to type in the text box, or say &quot;go to...&quot; / &quot;search for...&quot; to navigate">
       <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>
     </button>
   </div>

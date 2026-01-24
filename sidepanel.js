@@ -236,6 +236,21 @@ function saveState() {
   chrome.storage.local.set({ morphState: state }).catch(() => {});
 }
 
+// --- Voice: parse transcript for "go to X" / "search for X" -> navigate or return false ---
+function parseAsNavigation(transcript) {
+  const t = transcript.trim().toLowerCase();
+  let m = t.match(/^(?:search\s+for|google|search)\s+(.+)$/);
+  if (m) return { navigate: true, url: 'https://www.google.com/search?q=' + encodeURIComponent(m[1].trim()) };
+  m = t.match(/^(?:go\s+to|open|navigate\s+to)\s+(.+)$/);
+  if (m) {
+    const x = m[1].trim();
+    if (/^https?:\/\//i.test(x)) return { navigate: true, url: x };
+    if (/[a-z0-9][-a-z0-9]*\.[a-z]{2,}/i.test(x)) return { navigate: true, url: /^https?:\/\//i.test(x) ? x : 'https://' + x };
+    return { navigate: true, url: 'https://www.google.com/search?q=' + encodeURIComponent(x) };
+  }
+  return { navigate: false };
+}
+
 // --- Get Page Text ---
 async function getPageText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -337,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dyslexiaToggle = document.getElementById('dyslexia-toggle');
   const highContrastToggle = document.getElementById('high-contrast-toggle');
   const colorBlindnessSelect = document.getElementById('color-blindness');
+  const micBtn = document.getElementById('mic-btn');
 
 
   // --- Logic for Custom Morph ---
@@ -450,6 +466,92 @@ document.addEventListener('DOMContentLoaded', () => {
   chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); runChat(); }
   });
+
+  // --- VOICE (MIC) BUTTON: request mic, then SpeechRecognition; navigate or put transcript in custom-prompt ---
+  let isListening = false;
+  let recognitionInstance = null;
+
+  function voiceCleanup() {
+    isListening = false;
+    recognitionInstance = null;
+    if (micBtn) { micBtn.classList.remove('listening'); micBtn.disabled = false; }
+  }
+
+  if (micBtn) {
+    micBtn.addEventListener('click', () => {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+        return;
+      }
+
+      if (isListening && recognitionInstance) {
+        try { recognitionInstance.stop(); } catch (_) {}
+        return;
+      }
+
+      isListening = true;
+      micBtn.classList.add('listening');
+      micBtn.disabled = true;
+
+      function startRecognition() {
+        const recognition = new SpeechRec();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = navigator.language || 'en-US';
+        recognitionInstance = recognition;
+
+        recognition.onresult = (event) => {
+          const last = event.results[event.results.length - 1];
+          const transcript = (last && last[0] && last[0].transcript) ? String(last[0].transcript).trim() : '';
+          if (!transcript) return;
+
+          const nav = parseAsNavigation(transcript);
+          if (nav.navigate && nav.url) {
+            chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+              if (tab && tab.id) {
+                chrome.tabs.update(tab.id, { url: nav.url }).catch(() => {
+                  if (customInput) { customInput.value = transcript; customInput.focus(); }
+                });
+              }
+            });
+          } else {
+            if (customInput) { customInput.value = transcript; customInput.focus(); }
+            else if (chatInput) { chatInput.value = transcript; chatInput.focus(); chatInputGroup.classList.remove('hidden'); }
+            else { alert(transcript); }
+          }
+        };
+
+        recognition.onerror = (event) => {
+          voiceCleanup();
+          const msg = { 'not-allowed': 'Microphone access was denied. Please allow when the browser prompts.',
+            'no-speech': 'No speech detected. Try again.',
+            'audio-capture': 'No microphone found. Please connect a microphone.',
+            'network': 'Voice recognition needs internet. Check your connection.',
+            'aborted': null,
+            'service-not-allowed': 'Voice service not allowed. Try again later.'
+          }[event.error];
+          if (msg) alert(msg);
+        };
+
+        recognition.onend = () => { voiceCleanup(); };
+
+        try { recognition.start(); } catch (e) {
+          voiceCleanup();
+          alert('Could not start microphone: ' + (e.message || 'Unknown error'));
+        }
+      }
+
+      const mediaDevices = navigator.mediaDevices;
+      if (mediaDevices && typeof mediaDevices.getUserMedia === 'function') {
+        mediaDevices.getUserMedia({ audio: true })
+          .then((stream) => { stream.getTracks().forEach((t) => t.stop()); startRecognition(); })
+          .catch(() => { voiceCleanup(); alert('Please allow microphone access when prompted.'); });
+      } else {
+        startRecognition();
+      }
+    });
+  }
 
   // --- ACCESSIBILITY TOGGLES ---
   dyslexiaToggle.addEventListener('click', () => {
