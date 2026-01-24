@@ -1,5 +1,12 @@
 {
-    "manifest_version": 3,
-    "name": "Auth Test",
-    "version": "1.0"
+  "manifest_version": 3,
+  "name": "Morph  ",
+  "version": "1.0.0",
+  "description": "MorphUI is a tool that allows the users to modify the website saccording to their comfort, the AI agent helps to navigate through the website. ",
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
   }
+}
