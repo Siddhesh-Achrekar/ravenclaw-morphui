@@ -141,7 +141,8 @@ function buildAccCss(isShadow = false) {
   // Font override (Dyslexia)
   if (state.dyslexia) {
     // 1. Define the font stack (System fonts only for reliability)
-    const fontStack = 'body,p,span,li,div{font-family:\'Comic Sans MS\',sans-serif!important;letter-spacing:0.12em!important;word-spacing:0.2em!important}';
+    const fontStack = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", "Arial", sans-serif';
+    
     // 2. Selectors
     if (isShadow) {
       // For AI Overlay
@@ -354,37 +355,20 @@ document.getElementById('dyslexia-toggle').addEventListener('click', () => {
   state.dyslexia = !state.dyslexia;
   saveState();
   document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-<<<<<<< HEAD
   refreshGlobalStyles();
-=======
-  document.getElementById('dyslexia-toggle').setAttribute('aria-checked', state.dyslexia);
-  runMorph();
-  setPageState('morphed');
->>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 document.getElementById('high-contrast-toggle').addEventListener('click', () => {
   state.highContrast = !state.highContrast;
   saveState();
   document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-<<<<<<< HEAD
   refreshGlobalStyles();
-=======
-  document.getElementById('high-contrast-toggle').setAttribute('aria-checked', state.highContrast);
-  runMorph();
-  setPageState('morphed');
->>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 document.getElementById('color-blindness').addEventListener('change', (e) => {
   state.colorBlindness = e.target.value;
   saveState();
-<<<<<<< HEAD
   refreshGlobalStyles();
-=======
-  runMorph();
-  setPageState('morphed');
->>>>>>> 868d70a10700ee52d6747e8a0aacba9044d27e55
 });
 
 // --- Close & Misc ---
