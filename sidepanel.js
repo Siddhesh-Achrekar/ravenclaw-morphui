@@ -467,13 +467,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') { e.preventDefault(); runChat(); }
   });
 
-  // --- VOICE (MIC) BUTTON: request mic, then SpeechRecognition; navigate or put transcript in custom-prompt ---
+  // --- VOICE (MIC) BUTTON: request mic, then SpeechRecognition; navigate or put transcript in chat input only ---
   let isListening = false;
   let recognitionInstance = null;
 
   function voiceCleanup() {
     isListening = false;
-    recognitionInstance = null;
+    if (recognitionInstance) {
+      try { recognitionInstance.stop(); } catch (_) {}
+      recognitionInstance = null;
+    }
     if (micBtn) { micBtn.classList.remove('listening'); micBtn.disabled = false; }
   }
 
@@ -485,8 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      // Toggle: if already listening, stop recording
       if (isListening && recognitionInstance) {
-        try { recognitionInstance.stop(); } catch (_) {}
+        voiceCleanup();
         return;
       }
 
@@ -511,14 +515,24 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
               if (tab && tab.id) {
                 chrome.tabs.update(tab.id, { url: nav.url }).catch(() => {
-                  if (customInput) { customInput.value = transcript; customInput.focus(); }
+                  // If navigation fails, put in chat input
+                  if (chatInput) { 
+                    chatInput.value = transcript; 
+                    chatInput.focus(); 
+                    chatInputGroup.classList.remove('hidden'); 
+                  }
                 });
               }
             });
           } else {
-            if (customInput) { customInput.value = transcript; customInput.focus(); }
-            else if (chatInput) { chatInput.value = transcript; chatInput.focus(); chatInputGroup.classList.remove('hidden'); }
-            else { alert(transcript); }
+            // Only put transcript in chat input (not custom morph)
+            if (chatInput) { 
+              chatInput.value = transcript; 
+              chatInput.focus(); 
+              chatInputGroup.classList.remove('hidden'); 
+            } else { 
+              alert(transcript); 
+            }
           }
         };
 
