@@ -21,6 +21,9 @@
     }
 
     * { box-sizing: border-box; }
+    /* Exclude scrollbar fully: hide it while keeping scroll behavior */
+    html, body { scrollbar-width: none; -ms-overflow-style: none; }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
     body {
       font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       margin: 0;
@@ -453,19 +456,6 @@
     .mic-btn.listening { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
     .mic-btn:disabled { cursor: not-allowed; opacity: 0.9; }
     .powered { text-align: center; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px; }
-    .progress-wrap {
-      height: 4px;
-      background: var(--card-bg);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: var(--gradient-bar);
-      border-radius: 4px;
-      width: 0%;
-      transition: width 0.3s;
-    }
 
     /* Icon sizes */
     .icon-sm { width: 18px; height: 18px; flex-shrink: 0; }
@@ -562,7 +552,7 @@
     </div>
     <div id="mode-power" class="mode-card" data-mode="power">
       <div class="icon"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
-      <div class="name">Power Mode</div>
+      <div class="name">Priority Mode</div>
       <div class="desc">Dense Data</div>
     </div>
     <div id="mode-kids" class="mode-card selected" data-mode="kids">
@@ -630,9 +620,6 @@
 
   <footer class="footer">
     <p class="powered">Powered by Gemini 2.5</p>
-    <div class="progress-wrap">
-      <div id="progress-fill" class="progress-fill"></div>
-    </div>
   </footer>
 
   </div>

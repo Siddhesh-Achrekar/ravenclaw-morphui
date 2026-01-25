@@ -10,7 +10,7 @@ const FIREBASE_API_KEY = env.FIREBASE_CONFIG?.apiKey;
 // --- PROMPTS FOR AI MODES ---
 const MODE_PROMPTS = {
   'kids': "Rewrite this webpage content for a 7-year-old. Use a playful, colorful design with large 'Comic Sans' text, emojis, and simple language. Return HTML with inline CSS.",
-  'easy-read': "Rewrite this for maximum readability (WCAG AAA). Use black text on cream background, large sans-serif font, short paragraphs, and no clutter. Return HTML with inline CSS.",
+  'easy-read': "Rewrite this for EASY READ mode aimed at elderly and low-vision users: use very large, clear text (minimum 18px body, 24px+ headings), high contrast (black or dark gray #222 on off-white #faf8f5 or cream), short sentences and short paragraphs, generous line spacing (1.8) and letter spacing (0.02em), clean sans-serif (e.g. Arial, Segoe UI). Keep one main idea per paragraph. No visual clutter, no small fonts. Return HTML with inline CSS.",
   'focus': "Summarize this page into the essential core content only. Remove all fluff, ads, and sidebars. Use a dark mode terminal style (green text on black). Return HTML with inline CSS.",
   'power': "Condense this page into a high-density technical briefing. Use bullet points, data tables, and a professional monochrome look. Return HTML with inline CSS."
 };
@@ -456,7 +456,7 @@ async function runMorph(customPrompt = null) {
     3.  **Contrast:** ALWAYS ensure high contrast. If background is light, text MUST be dark (#333). If background is dark, text MUST be light (#eee). Never use white text on white backgrounds.
     4.  **Modern CSS:** Use Flexbox/Grid. Add \`gap: 20px\` between elements. Use \`border-radius: 12px\` for cards/images. Use \`box-shadow: 0 4px 6px rgba(0,0,0,0.1)\` for depth.
     5.  **Typography:** Use system fonts (\`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif\`). Line-height should be 1.6.
-    6.  **Images:** Style provided images with \`width: 100%; height: auto; object-fit: cover; border-radius: 12px;\`.
+    6.  **Images:** Preserve original image quality. Use \`max-width: 100%; height: auto; object-fit: contain;\` so images are never stretched or pixelated. Do not force width/height that changes aspect ratio. Keep original resolution; do not downscale or stretch.
     7.  **Links:** Style links as buttons or clear interactive elements.
     
     OUTPUT FORMAT:
