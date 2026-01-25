@@ -325,6 +325,30 @@
       font-size: 0.7rem;
       cursor: pointer;
     }
+    .profile-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile-panel {
+      padding: 16px;
+      border-radius: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .profile-row {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
 
     /* ---- Accessibility (collapsible) ---- */
     .acc-header {
@@ -421,6 +445,9 @@
   <header class="header">
     <h1>MorphUI</h1>
     <div style="display:flex; gap:8px; align-items:center;">
+      <button id="profile-btn" class="profile-btn hidden" aria-label="Profile">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
       <button id="auth-signout" class="signout-btn hidden">Sign Out</button>
       <button id="close-btn" class="close-btn" aria-label="Close">
         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -454,6 +481,15 @@
   </div>
 
   <div id="app" class="hidden">
+
+  <!-- Profile Panel -->
+  <div id="profile-panel" class="profile-panel hidden">
+    <div class="auth-title">Profile</div>
+    <div class="profile-row">Email: <span id="profile-email">-</span></div>
+    <div class="profile-row">UID: <span id="profile-uid">-</span></div>
+    <div class="profile-row">Provider: <span id="profile-provider">Email/Password</span></div>
+    <div class="profile-row">Last login: <span id="profile-login">-</span></div>
+  </div>
 
   <!-- View: Morphed | Original -->
   <div class="scope-toggles">

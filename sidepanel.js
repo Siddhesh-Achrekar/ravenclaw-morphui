@@ -549,6 +549,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 0. Auth UI ---
   const authScreen = document.getElementById('auth-screen');
   const appWrap = document.getElementById('app');
+  const profileBtn = document.getElementById('profile-btn');
+  const profilePanel = document.getElementById('profile-panel');
+  const profileEmail = document.getElementById('profile-email');
+  const profileUid = document.getElementById('profile-uid');
+  const profileProvider = document.getElementById('profile-provider');
+  const profileLogin = document.getElementById('profile-login');
   const authSigninView = document.getElementById('auth-signin-view');
   const authSignupView = document.getElementById('auth-signup-view');
   const authEmail = document.getElementById('auth-email');
@@ -572,6 +578,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (authScreen) authScreen.classList.toggle('hidden', isAuthed);
     if (appWrap) appWrap.classList.toggle('hidden', !isAuthed);
     if (authSignOut) authSignOut.classList.toggle('hidden', !isAuthed);
+    if (profileBtn) profileBtn.classList.toggle('hidden', !isAuthed);
+    if (!isAuthed && profilePanel) profilePanel.classList.add('hidden');
     if (!isAuthed) showAuthError('');
   }
 
@@ -610,9 +618,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
+  function updateProfileUI(session) {
+    if (!profileEmail || !profileProvider || !profileUid || !profileLogin) return;
+    profileEmail.textContent = session?.email || '-';
+    profileUid.textContent = session?.uid || '-';
+    profileProvider.textContent = session?.provider || 'Email/Password';
+    profileLogin.textContent = session?.loginAt
+      ? new Date(session.loginAt).toLocaleString()
+      : '-';
+  }
+
   async function initAuthUI() {
     const session = await getAuthSession();
     setAuthed(!!session);
+    updateProfileUI(session);
   }
 
   authToSignup?.addEventListener('click', () => {
@@ -637,10 +656,14 @@ document.addEventListener('DOMContentLoaded', () => {
       await setAuthSession({
         idToken: data.idToken,
         refreshToken: data.refreshToken,
-        email: data.email
+        email: data.email,
+        uid: data.localId,
+        provider: 'Email/Password',
+        loginAt: Date.now()
       });
       showAuthError('');
       setAuthed(true);
+      updateProfileUI({ email: data.email, uid: data.localId, provider: 'Email/Password', loginAt: Date.now() });
     } catch (e) {
       showAuthError(e?.message || 'Sign in failed.');
     } finally {
@@ -658,10 +681,14 @@ document.addEventListener('DOMContentLoaded', () => {
       await setAuthSession({
         idToken: data.idToken,
         refreshToken: data.refreshToken,
-        email: data.email
+        email: data.email,
+        uid: data.localId,
+        provider: 'Email/Password',
+        loginAt: Date.now()
       });
       showAuthError('');
       setAuthed(true);
+      updateProfileUI({ email: data.email, uid: data.localId, provider: 'Email/Password', loginAt: Date.now() });
     } catch (e) {
       showAuthError(e?.message || 'Sign up failed.');
     } finally {
@@ -678,6 +705,16 @@ document.addEventListener('DOMContentLoaded', () => {
   authSignOut?.addEventListener('click', async () => {
     await setAuthSession(null);
     setAuthed(false);
+    updateProfileUI(null);
+  });
+
+  profileBtn?.addEventListener('click', async () => {
+    if (!profilePanel) return;
+    const isHidden = profilePanel.classList.toggle('hidden');
+    if (!isHidden) {
+      const session = await getAuthSession();
+      updateProfileUI(session);
+    }
   });
 
   initAuthUI();
