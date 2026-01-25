@@ -9,10 +9,10 @@ const FIREBASE_API_KEY = env.FIREBASE_CONFIG?.apiKey;
 
 // --- PROMPTS FOR AI MODES ---
 const MODE_PROMPTS = {
-  'kids': "Rewrite this content for a 7-year-old. Design a vibrant, gamified interface. Use a 'bento box' grid layout with large rounded cards, soft shadows, and bright playful colors (pastel blues, yellows, pinks). Use large, friendly typography. Turn links into big colorful buttons. Ensure text is dark on light backgrounds.",
-  'easy-read': "Rewrite for maximum readability (WCAG AAA). Design a clean 'Reader View' interface like Medium or Apple Books. Use a warm cream background (#fdf6e3) with dark grey text (#2d3748). Center content in a single 700px column with generous whitespace (2.0 line-height). Use clear, high-contrast headings. No white text on light backgrounds.",
-  'focus': "Summarize content into a distraction-free 'Zen Mode'. Use a deep dark theme (background #121212, text #e0e0e0). Remove all sidebars, footers, and visual noise. Use a terminal-like monospaced font for code, and a clean sans-serif for text. Highlight key takeaways in neon accent colors.",
-  'power': "Condense content into a high-density 'Executive Dashboard'. Use a multi-column grid layout like a news portal. Use compact typography, distinct borders, and collapsible sections. Summarize long text into bulleted lists and data tables. Use a professional, monochromatic blue/slate color scheme."
+  'kids': "Rewrite this webpage content for a 7-year-old. Use a playful, colorful design with large 'Comic Sans' text, emojis, and simple language. Return HTML with inline CSS.",
+  'easy-read': "Rewrite this for maximum readability (WCAG AAA). Use black text on cream background, large sans-serif font, short paragraphs, and no clutter. Return HTML with inline CSS.",
+  'focus': "Summarize this page into the essential core content only. Remove all fluff, ads, and sidebars. Use a dark mode terminal style (green text on black). Return HTML with inline CSS.",
+  'power': "Condense this page into a high-density technical briefing. Use bullet points, data tables, and a professional monochrome look. Return HTML with inline CSS."
 };
 
 // --- Gemini API ---
