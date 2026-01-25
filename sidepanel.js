@@ -459,9 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
       document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      // When a preset is selected, we don't apply it immediately.
-      // We just set the state. The main "Morph" button triggers it.
-      setView('morphed', { apply: false }); 
+      setView('morphed');
     });
   });
 
@@ -625,20 +623,20 @@ document.addEventListener('DOMContentLoaded', () => {
     state.dyslexia = !state.dyslexia;
     saveState();
     document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
-    refreshGlobalStyles();
+    setView('morphed');
   });
 
   document.getElementById('high-contrast-toggle')?.addEventListener('click', () => {
     state.highContrast = !state.highContrast;
     saveState();
     document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
-    refreshGlobalStyles();
+    setView('morphed');
   });
 
   document.getElementById('color-blindness')?.addEventListener('change', (e) => {
     state.colorBlindness = e.target.value;
     saveState();
-    refreshGlobalStyles();
+    setView('morphed');
   });
 
   // --- 8. Init ---
