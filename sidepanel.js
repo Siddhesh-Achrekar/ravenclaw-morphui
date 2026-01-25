@@ -240,6 +240,40 @@ async function getPageText() {
   }
 }
 
+async function getPageImages(limit = 20) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: 'No active tab.' };
+  try {
+    const out = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (max) => {
+        const imgs = Array.from(document.images || []);
+        const urls = imgs
+          .map(img => {
+            const src = img.currentSrc || img.src || '';
+            if (!src) return null;
+            return {
+              url: src,
+              alt: (img.alt || '').trim(),
+              width: img.naturalWidth || img.width || 0,
+              height: img.naturalHeight || img.height || 0,
+            };
+          })
+          .filter(Boolean)
+          .filter(i => i.url && !i.url.startsWith('data:'))
+          .filter(i => (i.width || 0) >= 32 && (i.height || 0) >= 32)
+          .slice(0, max);
+        return urls;
+      },
+      args: [limit],
+    });
+    const images = out?.[0]?.result ?? [];
+    return { ok: true, images };
+  } catch (e) {
+    return { ok: false, error: 'Cannot read images from this page.' };
+  }
+}
+
 // --- MAIN MORPH FUNCTION (With Smart Caching) ---
 async function runMorph(customPrompt = null) {
   setView('morphed', { apply: false });
@@ -256,13 +290,18 @@ async function runMorph(customPrompt = null) {
   if (!page.ok) { alert(page.error); return; }
   if (!page.text) { alert("Page is empty or unreadable."); return; }
 
+  const imgs = await getPageImages(20);
+  const imageList = (imgs.ok && imgs.images.length)
+    ? imgs.images.map(i => `${i.url}${i.alt ? ` (alt: ${i.alt})` : ''}`).join('\n')
+    : '';
+
   // --- 1. CACHE CHECK ---
   // Create a unique key: URL + Mode + (CustomPromptHash if exists)
   // We sanitize the URL to remove query params if they cause noise, or keep strict if needed.
   // Using simple btoa might be too long, so we'll use a simple clean string logic.
   const urlKey = page.url.replace(/[^a-zA-Z0-9]/g, "").slice(0, 50); 
   const promptKey = customPrompt ? btoa(customPrompt) : 'preset';
-  const cacheKey = `MORPH_CACHE_V2_${urlKey}_${modeKey}_${promptKey}`;
+  const cacheKey = `MORPH_CACHE_V3_${urlKey}_${modeKey}_${promptKey}`;
 
   // Check storage first
   try {
@@ -285,9 +324,13 @@ async function runMorph(customPrompt = null) {
     1. Return ONLY valid HTML code inside a <div> wrapper.
     2. Include inline CSS for all styling.
     3. Make it beautiful, responsive, and fully accessible.
-    4. Do not return markdown ticks (\`\`\`).
+    4. Preserve and include relevant images from the original page using the provided URLs.
+    5. Use the images in context with proper alt text; do not invent new image URLs.
+    6. Do not return markdown ticks (\`\`\`).
     PAGE CONTENT TO REDESIGN:
     ${page.text}
+    IMAGE URLS FROM THE PAGE (use these when appropriate):
+    ${imageList || 'No images found.'}
   `;
 
   const res = await callGemini(fullPrompt);
