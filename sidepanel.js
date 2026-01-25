@@ -70,7 +70,7 @@ async function runOnActiveTab(fn, args = []) {
 }
 
 // --- INJECTOR 1: Full HTML Overlay (Shadow DOM) ---
-function injectMorphOverlay(htmlContent, overlayId, accCss, pageUrl) {
+function injectMorphOverlay(htmlContent, overlayId, accCss, pageUrl, safeMode) {
   // 1. Remove old overlay
   const old = document.getElementById(overlayId);
   if (old) old.remove();
@@ -118,6 +118,22 @@ function injectMorphOverlay(htmlContent, overlayId, accCss, pageUrl) {
   const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '');
   wrapper.innerHTML = cleanHtml;
   shadow.appendChild(wrapper);
+
+  // 7. Read-Only Interaction Lock (Safeguard Mode)
+  if (safeMode) {
+    wrapper.addEventListener('click', (e) => {
+      const path = e.composedPath ? e.composedPath() : [];
+      const link = path.find(el => el && el.tagName === 'A');
+      if (link) return; // Allow navigation (Navigation Integrity)
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+    wrapper.addEventListener('submit', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+    wrapper.addEventListener('input', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+    wrapper.addEventListener('change', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+    // Allow scrolling keys, block others
+    wrapper.addEventListener('keydown', (e) => { if(!['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); } }, true);
+  }
 
   // 6. Close Button
   const closeBtn = document.createElement('button');
@@ -248,7 +264,16 @@ async function getPageText() {
   try {
     const out = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => (document.body && document.body.innerText ? String(document.body.innerText).slice(0, 15000) : ''),
+      func: (safeMode) => {
+        if (!document.body) return '';
+        let text = document.body.innerText || '';
+        if (safeMode) {
+          text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]');
+          text = text.replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[REDACTED_PHONE]');
+        }
+        return String(text).slice(0, 15000);
+      },
+      args: [state.safeMode]
     });
     const text = (out?.[0]?.result ?? '').trim();
     // Return both text AND URL for the cache key
@@ -385,7 +410,7 @@ async function runMorph(customPrompt = null) {
     if (cachedData[cacheKey]) {
       console.log("Loading from cache:", cacheKey);
       const accCss = buildAccCss(true); 
-      await runOnActiveTab(injectMorphOverlay, [cachedData[cacheKey], OVERLAY_ID, accCss, page.url]);
+      await runOnActiveTab(injectMorphOverlay, [cachedData[cacheKey], OVERLAY_ID, accCss, page.url, state.safeMode]);
       return; // Exit early! No API call needed.
     }
   } catch (e) {
@@ -393,8 +418,35 @@ async function runMorph(customPrompt = null) {
   }
 
   // --- 2. API CALL (Only if not in cache) ---
+  let safetyPrompt = '';
+  if (state.safeMode) {
+    safetyPrompt = `
+    ────────────────────────────────────────
+    ABSOLUTE SAFETY & PRIVACY RULES (NON-NEGOTIABLE)
+    ────────────────────────────────────────
+    1. CREDENTIAL & PERSONAL DATA PROTECTION
+    - You MUST NOT access, infer, reconstruct, or reference: passwords, OTPs, PINs, emails, phone numbers, auth tokens.
+    - Treat all user data as PRIVATE and INACCESSIBLE.
+
+    2. FORM & INTERACTION IMMUTABILITY
+    - DO NOT modify, remove, restyle, wrap, relocate, or recreate: <form>, <input>, <textarea>, <select>, <button>.
+    - If a section contains interactive elements, LEAVE IT UNCHANGED or summarize it as read-only text.
+
+    3. NAVIGATION INTEGRITY
+    - DO NOT change, rewrite, shorten, or generate new URLs.
+    - DO NOT alter the destination or behavior of any <a> link.
+
+    4. SCRIPT, MEDIA & EXECUTION SAFETY
+    - DO NOT modify or inject: <script>, <iframe>, <video>, <audio>, embeds.
+    - DO NOT add JavaScript or dynamic execution logic.
+
+    5. NO CONTENT DELETION
+    - You MUST NOT delete page content. Content may be summarized or reorganized.`;
+  }
+
   const fullPrompt = `
     Act as a Senior UI/UX Designer and Accessibility Engineer.
+    ${safetyPrompt}
     
     TASK: ${promptInstruction}
     
@@ -434,6 +486,17 @@ async function runMorph(customPrompt = null) {
     throw new Error(res.error); // Make sure errors are thrown to be caught by handlers
   }
 
+  if (state.safeMode) {
+    const forbidden = [
+      /<script/i, /<iframe/i, /<object/i, /<embed/i, /<form/i, /<input/i, /<textarea/i, /<select/i, /<button/i,
+      /javascript:/i, /onclick=/i, /onload=/i, /onmouseover=/i
+    ];
+    if (forbidden.some(r => r.test(res.text))) {
+      alert("Safeguard Mode blocked unsafe changes (Scripts, Forms, or Interactive elements detected).");
+      return;
+    }
+  }
+
   // --- 3. SAVE TO CACHE ---
   try {
     // Use the same key to save the new result
@@ -444,7 +507,7 @@ async function runMorph(customPrompt = null) {
 
   // Inject Result
   const accCss = buildAccCss(true); 
-  await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss, page.url]);
+  await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss, page.url, state.safeMode]);
 }
 
 // --- NEW HELPER: Refresh Global Styles (Both Overlay AND Original Page) ---
