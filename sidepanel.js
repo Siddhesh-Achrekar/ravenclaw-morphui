@@ -69,7 +69,7 @@ async function runOnActiveTab(fn, args = []) {
 }
 
 // --- INJECTOR 1: Full HTML Overlay (Shadow DOM) ---
-function injectMorphOverlay(htmlContent, overlayId, accCss) {
+function injectMorphOverlay(htmlContent, overlayId, accCss, pageUrl) {
   // 1. Remove old overlay
   const old = document.getElementById(overlayId);
   if (old) old.remove();
@@ -84,6 +84,23 @@ function injectMorphOverlay(htmlContent, overlayId, accCss) {
 
   // 3. Create Shadow DOM
   const shadow = host.attachShadow({ mode: 'open' });
+
+  // 3.5 Set base URL so relative links resolve to the original page
+  if (pageUrl) {
+    const base = document.createElement('base');
+    base.href = pageUrl;
+    shadow.appendChild(base);
+  }
+
+  // Ensure links inside the overlay navigate correctly
+  shadow.addEventListener('click', (e) => {
+    const path = e.composedPath ? e.composedPath() : [];
+    const link = path.find(el => el && el.tagName === 'A');
+    if (link && link.href) {
+      e.preventDefault();
+      window.location.href = link.href;
+    }
+  });
 
   // 4. Inject Accessibility Styles
   const style = document.createElement('style');
@@ -274,6 +291,56 @@ async function getPageImages(limit = 20) {
   }
 }
 
+async function getPageLinks(limit = 60) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: 'No active tab.' };
+  try {
+    const out = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (max) => {
+        const links = Array.from(document.links || []);
+        const cleaned = links
+          .map(a => ({
+            href: a.href || '',
+            text: (a.innerText || a.textContent || '').trim()
+          }))
+          .filter(l => l.href && !l.href.startsWith('javascript:') && !l.href.startsWith('mailto:'))
+          .slice(0, max);
+        return cleaned;
+      },
+      args: [limit],
+    });
+    const links = out?.[0]?.result ?? [];
+    return { ok: true, links };
+  } catch (e) {
+    return { ok: false, error: 'Cannot read links from this page.' };
+  }
+}
+
+async function getPageMedia(limit = 10) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: 'No active tab.' };
+  try {
+    const out = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (max) => {
+        const media = [];
+        document.querySelectorAll('video, iframe').forEach((el) => {
+          const src = el.currentSrc || el.src || '';
+          if (!src) return;
+          media.push(src);
+        });
+        return Array.from(new Set(media)).slice(0, max);
+      },
+      args: [limit],
+    });
+    const media = out?.[0]?.result ?? [];
+    return { ok: true, media };
+  } catch (e) {
+    return { ok: false, error: 'Cannot read media from this page.' };
+  }
+}
+
 // --- MAIN MORPH FUNCTION (With Smart Caching) ---
 async function runMorph(customPrompt = null) {
   setView('morphed', { apply: false });
@@ -294,6 +361,14 @@ async function runMorph(customPrompt = null) {
   const imageList = (imgs.ok && imgs.images.length)
     ? imgs.images.map(i => `${i.url}${i.alt ? ` (alt: ${i.alt})` : ''}`).join('\n')
     : '';
+  const linkRes = await getPageLinks(60);
+  const linkList = (linkRes.ok && linkRes.links.length)
+    ? linkRes.links.map(l => `${l.href}${l.text ? ` (text: ${l.text})` : ''}`).join('\n')
+    : '';
+  const mediaRes = await getPageMedia(10);
+  const mediaList = (mediaRes.ok && mediaRes.media.length)
+    ? mediaRes.media.join('\n')
+    : '';
 
   // --- 1. CACHE CHECK ---
   // Create a unique key: URL + Mode + (CustomPromptHash if exists)
@@ -301,7 +376,7 @@ async function runMorph(customPrompt = null) {
   // Using simple btoa might be too long, so we'll use a simple clean string logic.
   const urlKey = page.url.replace(/[^a-zA-Z0-9]/g, "").slice(0, 50); 
   const promptKey = customPrompt ? btoa(customPrompt) : 'preset';
-  const cacheKey = `MORPH_CACHE_V3_${urlKey}_${modeKey}_${promptKey}`;
+  const cacheKey = `MORPH_CACHE_V4_${urlKey}_${modeKey}_${promptKey}`;
 
   // Check storage first
   try {
@@ -309,7 +384,7 @@ async function runMorph(customPrompt = null) {
     if (cachedData[cacheKey]) {
       console.log("Loading from cache:", cacheKey);
       const accCss = buildAccCss(true); 
-      await runOnActiveTab(injectMorphOverlay, [cachedData[cacheKey], OVERLAY_ID, accCss]);
+      await runOnActiveTab(injectMorphOverlay, [cachedData[cacheKey], OVERLAY_ID, accCss, page.url]);
       return; // Exit early! No API call needed.
     }
   } catch (e) {
@@ -325,12 +400,18 @@ async function runMorph(customPrompt = null) {
     2. Include inline CSS for all styling.
     3. Make it beautiful, responsive, and fully accessible.
     4. Preserve and include relevant images from the original page using the provided URLs.
-    5. Use the images in context with proper alt text; do not invent new image URLs.
-    6. Do not return markdown ticks (\`\`\`).
+    5. Preserve and include relevant links using the provided URLs so navigation works.
+    6. If media URLs are provided (video/iframe), include them where appropriate.
+    7. Use the images in context with proper alt text; do not invent new image URLs.
+    8. Do not return markdown ticks (\`\`\`).
     PAGE CONTENT TO REDESIGN:
     ${page.text}
     IMAGE URLS FROM THE PAGE (use these when appropriate):
     ${imageList || 'No images found.'}
+    LINK URLS FROM THE PAGE (use these when appropriate):
+    ${linkList || 'No links found.'}
+    MEDIA URLS FROM THE PAGE (use these when appropriate):
+    ${mediaList || 'No media found.'}
   `;
 
   const res = await callGemini(fullPrompt);
@@ -351,7 +432,7 @@ async function runMorph(customPrompt = null) {
 
   // Inject Result
   const accCss = buildAccCss(true); 
-  await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss]);
+  await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss, page.url]);
 }
 
 // --- NEW HELPER: Refresh Global Styles (Both Overlay AND Original Page) ---
