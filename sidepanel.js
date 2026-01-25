@@ -9,10 +9,10 @@ const FIREBASE_API_KEY = env.FIREBASE_CONFIG?.apiKey;
 
 // --- PROMPTS FOR AI MODES ---
 const MODE_PROMPTS = {
-  'kids': "Rewrite this webpage content for a 7-year-old. Use a playful, colorful design with large 'Comic Sans' text, emojis, and simple language. Return HTML with inline CSS.",
-  'easy-read': "Rewrite this for maximum readability (WCAG AAA). Use black text on cream background, large sans-serif font, short paragraphs, and no clutter. Return HTML with inline CSS.",
-  'focus': "Summarize this page into the essential core content only. Remove all fluff, ads, and sidebars. Use a dark mode terminal style (green text on black). Return HTML with inline CSS.",
-  'power': "Condense this page into a high-density technical briefing. Use bullet points, data tables, and a professional monochrome look. Return HTML with inline CSS."
+  'kids': "Rewrite this content for a 7-year-old. Design a vibrant, gamified interface. Use a 'bento box' grid layout with large rounded cards, soft shadows, and bright playful colors (pastel blues, yellows, pinks). Use large, friendly typography. Turn links into big colorful buttons. Ensure text is dark on light backgrounds.",
+  'easy-read': "Rewrite for maximum readability (WCAG AAA). Design a clean 'Reader View' interface like Medium or Apple Books. Use a warm cream background (#fdf6e3) with dark grey text (#2d3748). Center content in a single 700px column with generous whitespace (2.0 line-height). Use clear, high-contrast headings. No white text on light backgrounds.",
+  'focus': "Summarize content into a distraction-free 'Zen Mode'. Use a deep dark theme (background #121212, text #e0e0e0). Remove all sidebars, footers, and visual noise. Use a terminal-like monospaced font for code, and a clean sans-serif for text. Highlight key takeaways in neon accent colors.",
+  'power': "Condense content into a high-density 'Executive Dashboard'. Use a multi-column grid layout like a news portal. Use compact typography, distinct borders, and collapsible sections. Summarize long text into bulleted lists and data tables. Use a professional, monochromatic blue/slate color scheme."
 };
 
 // --- Gemini API ---
@@ -394,24 +394,35 @@ async function runMorph(customPrompt = null) {
 
   // --- 2. API CALL (Only if not in cache) ---
   const fullPrompt = `
-    Act as an Expert Accessibility Frontend Developer.
+    Act as a Senior UI/UX Designer and Accessibility Engineer.
+    
     TASK: ${promptInstruction}
-    RULES:
-    1. Return ONLY valid HTML code inside a <div> wrapper.
-    2. Include inline CSS for all styling.
-    3. Make it beautiful, responsive, and fully accessible.
-    4. Preserve and include relevant images from the original page using the provided URLs.
-    5. Preserve and include relevant links using the provided URLs so navigation works.
-    6. If media URLs are provided (video/iframe), include them where appropriate.
-    7. Use the images in context with proper alt text; do not invent new image URLs.
-    8. Do not return markdown ticks (\`\`\`).
+    
+    STRICT DESIGN RULES:
+    1.  **Global Reset:** Start with \`* { box-sizing: border-box; margin: 0; padding: 0; }\`.
+    2.  **Container:** Wrap content in a main container with \`max-width: 1200px; margin: 0 auto; padding: 20px;\`.
+    3.  **Contrast:** ALWAYS ensure high contrast. If background is light, text MUST be dark (#333). If background is dark, text MUST be light (#eee). Never use white text on white backgrounds.
+    4.  **Modern CSS:** Use Flexbox/Grid. Add \`gap: 20px\` between elements. Use \`border-radius: 12px\` for cards/images. Use \`box-shadow: 0 4px 6px rgba(0,0,0,0.1)\` for depth.
+    5.  **Typography:** Use system fonts (\`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif\`). Line-height should be 1.6.
+    6.  **Images:** Style provided images with \`width: 100%; height: auto; object-fit: cover; border-radius: 12px;\`.
+    7.  **Links:** Style links as buttons or clear interactive elements.
+    
+    OUTPUT FORMAT:
+    - Return ONLY valid HTML code inside a <body> tag.
+    - Include ALL CSS inside a <style> block within the HTML.
+    - Do not use external CSS links.
+    - Do not return markdown ticks (\`\`\`).
+    
     PAGE CONTENT TO REDESIGN:
     ${page.text}
-    IMAGE URLS FROM THE PAGE (use these when appropriate):
+    
+    IMAGE ASSETS (Use these URLs):
     ${imageList || 'No images found.'}
-    LINK URLS FROM THE PAGE (use these when appropriate):
+    
+    NAVIGATION LINKS (Style these as a footer or nav bar):
     ${linkList || 'No links found.'}
-    MEDIA URLS FROM THE PAGE (use these when appropriate):
+    
+    MEDIA (Embed if valid):
     ${mediaList || 'No media found.'}
   `;
 
@@ -727,6 +738,86 @@ document.addEventListener('DOMContentLoaded', () => {
       if (q === '') return;
       showAiLoader();
       chatInput.value = '';
+
+      const lowerQ = q.toLowerCase();
+
+      // --- 1. Scrolling Logic ---
+      if (lowerQ.includes('scroll') || lowerQ.includes('move') || (lowerQ.includes('go') && (lowerQ.includes('up') || lowerQ.includes('down') || lowerQ.includes('top') || lowerQ.includes('bottom')))) {
+        let direction = '';
+        if (lowerQ.includes('top')) direction = 'top';
+        else if (lowerQ.includes('bottom')) direction = 'bottom';
+        else if (lowerQ.includes('up')) direction = 'up';
+        else if (lowerQ.includes('down')) direction = 'down';
+
+        if (direction) {
+          showAiResult(`Scrolling ${direction}...`);
+          await runOnActiveTab((dir) => {
+            if (dir === 'top') window.scrollTo({ top: 0, behavior: 'smooth' });
+            else if (dir === 'bottom') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            else if (dir === 'down') window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+            else if (dir === 'up') window.scrollBy({ top: -window.innerHeight * 0.8, behavior: 'smooth' });
+          }, [direction]);
+          chatInputGroup?.classList.remove('hidden');
+          return;
+        }
+      }
+
+      // --- 2. History Logic ---
+      if (lowerQ === 'go back' || lowerQ === 'back') {
+        showAiResult('Going back...');
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.goBack(tab.id).catch(() => {});
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+      if (lowerQ === 'go forward' || lowerQ === 'forward') {
+        showAiResult('Going forward...');
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.goForward(tab.id).catch(() => {});
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+
+      // --- 3. Link Navigation (Enhanced) ---
+      const navMatch = q.match(/^(?:go\s+to|open|navigate\s+to|click)\s+(.+)$/i);
+      if (navMatch) {
+        const target = navMatch[1].trim().toLowerCase();
+        
+        // Search for link on current page
+        const linkRes = await getPageLinks(300);
+        if (linkRes.ok && linkRes.links.length > 0) {
+          let found = linkRes.links.find(l => l.text && l.text.toLowerCase() === target);
+          if (!found) {
+            found = linkRes.links.find(l => 
+              (l.text && l.text.toLowerCase().includes(target)) || 
+              (l.href && l.href.toLowerCase().includes(target))
+            );
+          }
+          
+          if (found) {
+            showAiResult(`Navigating to: ${found.text || target}`);
+            chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+              if (tab?.id) chrome.tabs.update(tab.id, { url: found.href });
+            });
+            chatInputGroup?.classList.remove('hidden');
+            return;
+          }
+        }
+      }
+
+      // --- 4. General Navigation (URL or Search) ---
+      const nav = parseAsNavigation(q);
+      if (nav.navigate && nav.url) {
+        showAiResult(`Navigating to: ${nav.url}`);
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.update(tab.id, { url: nav.url });
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+
       const page = await getPageText();
       if (!page.ok) { showAiResult('Error: ' + page.error, true); chatInputGroup?.classList.remove('hidden'); return; }
       if (!page.text) { showAiResult('Error: Cannot read page to answer question.', true); chatInputGroup?.classList.remove('hidden'); return; }
