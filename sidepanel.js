@@ -601,6 +601,86 @@ document.addEventListener('DOMContentLoaded', () => {
       if (q === '') return;
       showAiLoader();
       chatInput.value = '';
+
+      const lowerQ = q.toLowerCase();
+
+      // --- 1. Scrolling Logic ---
+      if (lowerQ.includes('scroll') || lowerQ.includes('move') || (lowerQ.includes('go') && (lowerQ.includes('up') || lowerQ.includes('down') || lowerQ.includes('top') || lowerQ.includes('bottom')))) {
+        let direction = '';
+        if (lowerQ.includes('top')) direction = 'top';
+        else if (lowerQ.includes('bottom')) direction = 'bottom';
+        else if (lowerQ.includes('up')) direction = 'up';
+        else if (lowerQ.includes('down')) direction = 'down';
+
+        if (direction) {
+          showAiResult(`Scrolling ${direction}...`);
+          await runOnActiveTab((dir) => {
+            if (dir === 'top') window.scrollTo({ top: 0, behavior: 'smooth' });
+            else if (dir === 'bottom') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            else if (dir === 'down') window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+            else if (dir === 'up') window.scrollBy({ top: -window.innerHeight * 0.8, behavior: 'smooth' });
+          }, [direction]);
+          chatInputGroup?.classList.remove('hidden');
+          return;
+        }
+      }
+
+      // --- 2. History Logic ---
+      if (lowerQ === 'go back' || lowerQ === 'back') {
+        showAiResult('Going back...');
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.goBack(tab.id).catch(() => {});
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+      if (lowerQ === 'go forward' || lowerQ === 'forward') {
+        showAiResult('Going forward...');
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.goForward(tab.id).catch(() => {});
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+
+      // --- 3. Link Navigation (Enhanced) ---
+      const navMatch = q.match(/^(?:go\s+to|open|navigate\s+to|click)\s+(.+)$/i);
+      if (navMatch) {
+        const target = navMatch[1].trim().toLowerCase();
+        
+        // Search for link on current page
+        const linkRes = await getPageLinks(300);
+        if (linkRes.ok && linkRes.links.length > 0) {
+          let found = linkRes.links.find(l => l.text && l.text.toLowerCase() === target);
+          if (!found) {
+            found = linkRes.links.find(l => 
+              (l.text && l.text.toLowerCase().includes(target)) || 
+              (l.href && l.href.toLowerCase().includes(target))
+            );
+          }
+          
+          if (found) {
+            showAiResult(`Navigating to: ${found.text || target}`);
+            chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+              if (tab?.id) chrome.tabs.update(tab.id, { url: found.href });
+            });
+            chatInputGroup?.classList.remove('hidden');
+            return;
+          }
+        }
+      }
+
+      // --- 4. General Navigation (URL or Search) ---
+      const nav = parseAsNavigation(q);
+      if (nav.navigate && nav.url) {
+        showAiResult(`Navigating to: ${nav.url}`);
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab?.id) chrome.tabs.update(tab.id, { url: nav.url });
+        });
+        chatInputGroup?.classList.remove('hidden');
+        return;
+      }
+
       const page = await getPageText();
       if (!page.ok) { showAiResult('Error: ' + page.error, true); chatInputGroup?.classList.remove('hidden'); return; }
       if (!page.text) { showAiResult('Error: Cannot read page to answer question.', true); chatInputGroup?.classList.remove('hidden'); return; }
