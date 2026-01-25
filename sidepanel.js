@@ -3,7 +3,7 @@ import { env } from './config.js';
 
 const MORPH_STYLE_ID = 'morph-ui-injected';
 const OVERLAY_ID = 'morph-ui-overlay';
-const ORIGINAL_STYLE_ID = 'morph-acc-original-style'; // NEW: ID for original page styles
+const ORIGINAL_STYLE_ID = 'morph-acc-original-style';
 const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // --- PROMPTS FOR AI MODES ---
@@ -17,7 +17,7 @@ const MODE_PROMPTS = {
 // --- Gemini API ---
 async function callGemini(prompt) {
   const key = env.GEMINI_API_KEY;
-  const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+  const base = (env.BASE_URL || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
   if (!key || !base) {
     return { ok: false, error: 'Missing GEMINI_API_KEY or BASE_URL in config.js' };
   }
@@ -96,6 +96,7 @@ function injectMorphOverlay(htmlContent, overlayId, accCss) {
   wrapper.id = 'morph-content';
   wrapper.style.height = '100%';
   wrapper.style.overflowY = 'auto';
+  // Strip Markdown ticks if present
   const cleanHtml = htmlContent.replace(/```html/g, '').replace(/```/g, '');
   wrapper.innerHTML = cleanHtml;
   shadow.appendChild(wrapper);
@@ -144,65 +145,33 @@ function removeOriginalPageStyles(styleId) {
 }
 
 // --- Helper: Build Accessibility CSS ---
-// UPDATED: Simply swaps the font to Comic Sans (Dyslexia friendly) and adjusts spacing
 function buildAccCss(isShadow = false) {
   let acc = '';
   
-  // Font override (Dyslexia)
+  // Font override (Dyslexia) - Now using a safe system font stack
   if (state.dyslexia) {
-    // 1. Define the font stack (System fonts only for reliability)
     const fontStack = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", "Arial", sans-serif';
-    
-    // 2. Selectors
-    if (isShadow) {
-      // For AI Overlay
-      acc += `:host, :host * { font-family: ${fontStack} !important; letter-spacing: 0.05em !important; word-spacing: 0.1em !important; line-height: 1.6 !important; }`;
-    } else {
-      // For Original Page - "Nuclear" selector to override everything
-      acc += `html, body, div, p, span, a, h1, h2, h3, h4, h5, h6, li, ul, ol, td, th, button, input, textarea, label, select, article, section, main, nav, header, footer, * { font-family: ${fontStack} !important; letter-spacing: 0.05em !important; word-spacing: 0.1em !important; line-height: 1.6 !important; }`;
-    }
+    const target = isShadow ? ':host, :host *' : 'html, body, div, p, span, a, h1, h2, h3, h4, h5, h6, li, ul, ol, td, th, button, input, textarea, label, select, article, section, main, nav, header, footer, *';
+    acc += `${target} { font-family: ${fontStack} !important; letter-spacing: 0.05em !important; word-spacing: 0.1em !important; line-height: 1.6 !important; }`;
   }
   
   // High Contrast
-  if (state.highContrast) acc += `
-    html, body {
-      background: #000 !important;
-      color: #fff !important;
+  if (state.highContrast) {
+    if(isShadow) {
+        acc += `:host * { border: 1px solid rgba(255,255,255,0.5) !important; background-color: black !important; color: white !important; } a { color: #FFFF00 !important; }`;
+    } else {
+        // High Contrast for Original Page
+        acc += `
+        html, body { background: #000 !important; color: #fff !important; }
+        * { background: transparent !important; box-shadow: none !important; text-shadow: none !important; }
+        p, span, li, div { color: #fff !important; }
+        a { color: #00ffff !important; text-decoration: underline !important; font-weight: bold !important; }
+        button, [role="button"], input, select { background: #000 !important; color: #fff !important; border: 2px solid #fff !important; border-radius: 6px !important; }
+        img, video { filter: brightness(0.85) contrast(1.2) !important; }
+        :focus { outline: 3px solid yellow !important; outline-offset: 2px; }
+        `;
     }
-
-    * {
-      background: transparent !important;
-      box-shadow: none !important;
-      text-shadow: none !important;
-    }
-
-    p, span, li, div {
-      color: #fff !important;
-    }
-
-    a {
-      color: #00ffff !important;
-      text-decoration: underline !important;
-      font-weight: bold !important;
-    }
-
-    button, [role="button"], input, select {
-      background: #000 !important;
-      color: #fff !important;
-      border: 2px solid #fff !important;
-      border-radius: 6px !important;
-    }
-
-    img, video {
-      filter: brightness(0.85) contrast(1.2) !important;
-    }
-
-    :focus {
-      outline: 3px solid yellow !important;
-      outline-offset: 2px;
-    }
-  `;
-
+  }
   
   // Color Blindness Filters
   const cb = state.colorBlindness;
@@ -236,7 +205,7 @@ function saveState() {
   chrome.storage.local.set({ morphState: state }).catch(() => {});
 }
 
-// --- Voice: parse transcript for "go to X" / "search for X" -> navigate or return false ---
+// --- Voice: parse transcript for navigation ---
 function parseAsNavigation(transcript) {
   const t = transcript.trim().toLowerCase();
   let m = t.match(/^(?:search\s+for|google|search)\s+(.+)$/);
@@ -251,11 +220,11 @@ function parseAsNavigation(transcript) {
   return { navigate: false };
 }
 
-// --- Get Page Text ---
+// --- Get Page Text + URL (URL is vital for caching) ---
 async function getPageText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return { ok: false, error: 'No active tab.' };
-  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\/$/i.test(tab.url)) {
+  if (tab.url && /^(chrome|edge|about|opera|vivaldi):\/\//i.test(tab.url)) {
     return { ok: false, error: 'Cannot read internal browser pages.' };
   }
   try {
@@ -264,24 +233,51 @@ async function getPageText() {
       func: () => (document.body && document.body.innerText ? String(document.body.innerText).slice(0, 15000) : ''),
     });
     const text = (out?.[0]?.result ?? '').trim();
-    return { ok: true, text };
+    // Return both text AND URL for the cache key
+    return { ok: true, text, url: tab.url };
   } catch (e) {
     return { ok: false, error: 'Cannot access this page. Try refreshing.' };
   }
 }
 
-// --- MAIN MORPH FUNCTION (AI Powered) ---
+// --- MAIN MORPH FUNCTION (With Smart Caching) ---
 async function runMorph(customPrompt = null) {
   setView('morphed', { apply: false });
   let promptInstruction = customPrompt;
+  let modeKey = state.mode; // Default to current mode
+
   if (!promptInstruction) {
     promptInstruction = MODE_PROMPTS[state.mode] || MODE_PROMPTS['easy-read'];
+  } else {
+    modeKey = 'custom'; // Differentiate custom prompts in the cache
   }
 
   const page = await getPageText();
   if (!page.ok) { alert(page.error); return; }
   if (!page.text) { alert("Page is empty or unreadable."); return; }
 
+  // --- 1. CACHE CHECK ---
+  // Create a unique key: URL + Mode + (CustomPromptHash if exists)
+  // We sanitize the URL to remove query params if they cause noise, or keep strict if needed.
+  // Using simple btoa might be too long, so we'll use a simple clean string logic.
+  const urlKey = page.url.replace(/[^a-zA-Z0-9]/g, "").slice(0, 50); 
+  const promptKey = customPrompt ? btoa(customPrompt) : 'preset';
+  const cacheKey = `MORPH_CACHE_V2_${urlKey}_${modeKey}_${promptKey}`;
+
+  // Check storage first
+  try {
+    const cachedData = await chrome.storage.local.get(cacheKey);
+    if (cachedData[cacheKey]) {
+      console.log("Loading from cache:", cacheKey);
+      const accCss = buildAccCss(true); 
+      await runOnActiveTab(injectMorphOverlay, [cachedData[cacheKey], OVERLAY_ID, accCss]);
+      return; // Exit early! No API call needed.
+    }
+  } catch (e) {
+    console.warn("Cache read failed", e);
+  }
+
+  // --- 2. API CALL (Only if not in cache) ---
   const fullPrompt = `
     Act as an Expert Accessibility Frontend Developer.
     TASK: ${promptInstruction}
@@ -299,10 +295,18 @@ async function runMorph(customPrompt = null) {
   if (!res.ok) {
     console.error(res.error);
     alert("AI Error: " + res.error);
-    throw new Error(res.error);
+    throw new Error(res.error); // Make sure errors are thrown to be caught by handlers
   }
 
-  // Inject Overlay with Shadow DOM-specific styles
+  // --- 3. SAVE TO CACHE ---
+  try {
+    // Use the same key to save the new result
+    await chrome.storage.local.set({ [cacheKey]: res.text });
+  } catch (e) {
+    console.warn("Cache save failed (likely quota)", e);
+  }
+
+  // Inject Result
   const accCss = buildAccCss(true); 
   await runOnActiveTab(injectMorphOverlay, [res.text, OVERLAY_ID, accCss]);
 }
@@ -340,83 +344,92 @@ async function setView(view, { apply = true } = {}) {
   }
 }
 
-// --- Wait for DOM to load before attaching listeners ---
+// --- DOMContentLoaded Wrapper (Essential for Event Listeners) ---
 document.addEventListener('DOMContentLoaded', () => {
-  // --- Element Cache ---
+
+  // --- 1. Custom Morph Logic (Independent Handler) ---
   const customInput = document.getElementById('custom-prompt');
   const customBtn = document.getElementById('custom-apply-btn');
-  const resultBox = document.getElementById('ai-result-box');
-  const chatInputGroup = document.getElementById('ai-chat-input-group');
-  const chatInput = document.getElementById('ai-chat-input');
-  const chatSend = document.getElementById('ai-chat-send');
-  const dyslexiaToggle = document.getElementById('dyslexia-toggle');
-  const highContrastToggle = document.getElementById('high-contrast-toggle');
-  const colorBlindnessSelect = document.getElementById('color-blindness');
-  const micBtn = document.getElementById('mic-btn');
 
-
-  // --- Logic for Custom Morph ---
-  const handleCustomMorph = async () => {
-    const val = customInput.value.trim();
-    if (!val) return;
-
-    const originalText = customBtn.textContent;
-    customBtn.disabled = true;
-    customBtn.textContent = 'Processing...';
-
-    try {
-      await runMorph(val);
-    } catch (err) {
-      console.error("Custom morph failed:", err);
-      alert("Failed to apply custom design. Please try again.");
-    } finally {
-      customBtn.disabled = false;
-      customBtn.textContent = originalText;
-    }
-  };
-  
   if (customInput && customBtn) {
-    customBtn.addEventListener('click', handleCustomMorph);
+    const handleCustomTrigger = async () => {
+      const val = customInput.value.trim();
+      if (!val) return;
+
+      // UX Feedback
+      customBtn.disabled = true;
+      const prevText = customBtn.textContent;
+      customBtn.textContent = '...';
+      
+      // Visually deselect preset cards
+      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+
+      try {
+        // Run logic independently
+        await runMorph(val);
+      } catch (e) {
+        console.error(e);
+        alert('Custom morph failed.');
+      } finally {
+        customBtn.disabled = false;
+        customBtn.textContent = prevText;
+      }
+    };
+
+    // Button Click
+    customBtn.addEventListener('click', handleCustomTrigger);
+
+    // Enter Key (Prevents New Line)
     customInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        e.preventDefault();
-        handleCustomMorph();
+        e.preventDefault(); 
+        handleCustomTrigger();
       }
     });
   }
 
-  // View Toggle: Morphed | Original
-  document.getElementById('view-morphed').addEventListener('click', () => {
-    setView('morphed');
-  });
-  document.getElementById('view-original').addEventListener('click', () => {
-    setView('original');
-  });
+  // --- 2. View Toggles ---
+  document.getElementById('view-morphed')?.addEventListener('click', () => setView('morphed'));
+  document.getElementById('view-original')?.addEventListener('click', () => setView('original'));
 
-  // Morph Button
-  document.getElementById('morph-btn').addEventListener('click', async () => {
+  // --- 3. Main Morph Button ---
+  document.getElementById('morph-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('morph-btn');
     btn.disabled = true;
     const originalText = btn.querySelector('span').textContent;
     btn.querySelector('span').textContent = 'Generating UI...';
-    try { await runMorph(); } catch (e) { console.error(e); alert("Unexpected error."); }
-    btn.disabled = false;
-    btn.querySelector('span').textContent = originalText;
+    try { 
+      await runMorph();
+    } catch (e) { 
+      console.error(e);
+      alert("Morph failed to generate. Please try again.");
+    } finally {
+      btn.disabled = false;
+      btn.querySelector('span').textContent = originalText;
+    }
   });
 
-  // Mode Cards
+  // --- 4. Mode Cards ---
   document.querySelectorAll('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
       state.mode = card.dataset.mode;
       saveState();
       document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      setView('morphed', { apply: false });
+      // When a preset is selected, we don't apply it immediately.
+      // We just set the state. The main "Morph" button triggers it.
+      setView('morphed', { apply: false }); 
     });
   });
 
-  // --- UI: Chat & Summarize ---
+  // --- 5. Chat & Summarize ---
+  const resultBox = document.getElementById('ai-result-box');
+  const chatInputGroup = document.getElementById('ai-chat-input-group');
+  const chatInput = document.getElementById('ai-chat-input');
+  const chatSend = document.getElementById('ai-chat-send');
+
   function showAiResult(content, isError = false) {
+    if(!resultBox) return;
     resultBox.classList.remove('hidden', 'error');
     if (isError) {
       resultBox.classList.add('error'); resultBox.textContent = content;
@@ -431,43 +444,53 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showAiLoader() {
-    chatInputGroup.classList.add('hidden');
-    resultBox.classList.remove('hidden', 'error');
-    resultBox.textContent = 'Thinking...';
+    chatInputGroup?.classList.add('hidden');
+    if(resultBox) {
+      resultBox.classList.remove('hidden', 'error');
+      resultBox.textContent = 'Thinking...';
+    }
   }
 
-  document.getElementById('ai-summarize').addEventListener('click', async () => {
+  document.getElementById('ai-summarize')?.addEventListener('click', async () => {
     showAiLoader();
     const page = await getPageText();
-    if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
+    if (!page.ok) { showAiResult('Error: ' + page.error, true); chatInputGroup?.classList.remove('hidden'); return; }
+    if (!page.text) { showAiResult('Error: Page is empty or unreadable.', true); chatInputGroup?.classList.remove('hidden'); return; }
+    
     const r = await callGemini('Summarize this webpage in 3–5 short bullet points.\n\n' + page.text);
     if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
+    chatInputGroup?.classList.remove('hidden');
   });
 
   async function runChat() {
+      if(!chatInput) return;
       const q = chatInput.value.trim();
       if (q === '') return;
       showAiLoader();
       chatInput.value = '';
       const page = await getPageText();
-      if (!page.ok) { showAiResult('Error: ' + page.error, true); return; }
-      const r = await callGemini(`Answer based on page: "${q}"\n\n${page.text}`);
-      chatInputGroup.classList.remove('hidden');
+      if (!page.ok) { showAiResult('Error: ' + page.error, true); chatInputGroup?.classList.remove('hidden'); return; }
+      if (!page.text) { showAiResult('Error: Cannot read page to answer question.', true); chatInputGroup?.classList.remove('hidden'); return; }
+
+      const r = await callGemini(`Based *only* on the text below, answer the user's question. If the answer is not in the text, say you cannot answer. Question: "${q}"\n\nPage Text: ${page.text}`);
+      
       if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
+      chatInputGroup?.classList.remove('hidden');
   }
 
-  document.getElementById('ai-chat').addEventListener('click', () => {
-    resultBox.classList.add('hidden');
-    const isHidden = chatInputGroup.classList.toggle('hidden');
-    if (!isHidden) chatInput.focus();
+  document.getElementById('ai-chat')?.addEventListener('click', () => {
+    resultBox?.classList.add('hidden');
+    const isHidden = chatInputGroup?.classList.toggle('hidden');
+    if (!isHidden) chatInput?.focus();
   });
 
-  chatSend.addEventListener('click', runChat);
-  chatInput.addEventListener('keydown', (e) => {
+  chatSend?.addEventListener('click', runChat);
+  chatInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); runChat(); }
   });
 
-  // --- VOICE (MIC) BUTTON: request mic, then SpeechRecognition; navigate or put transcript in chat input only ---
+  // --- 6. Voice (Mic) Logic ---
+  const micBtn = document.getElementById('mic-btn');
   let isListening = false;
   let recognitionInstance = null;
 
@@ -477,26 +500,27 @@ document.addEventListener('DOMContentLoaded', () => {
       try { recognitionInstance.stop(); } catch (_) {}
       recognitionInstance = null;
     }
-    if (micBtn) { micBtn.classList.remove('listening'); micBtn.disabled = false; }
+    if (micBtn) { 
+      micBtn.classList.remove('listening');
+      micBtn.innerHTML = '<svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/><path d="M8 23h8"/></svg>';
+    }
   }
 
   if (micBtn) {
     micBtn.addEventListener('click', () => {
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRec) {
-        alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+        alert('Voice input is not supported. Try Chrome.');
         return;
       }
-
-      // Toggle: if already listening, stop recording
       if (isListening && recognitionInstance) {
         voiceCleanup();
         return;
       }
-
       isListening = true;
       micBtn.classList.add('listening');
-      micBtn.disabled = false;
+      micBtn.innerHTML = '<svg class="icon-md" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>';
+
 
       function startRecognition() {
         const recognition = new SpeechRec();
@@ -515,100 +539,92 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
               if (tab && tab.id) {
                 chrome.tabs.update(tab.id, { url: nav.url }).catch(() => {
-                  // If navigation fails, put in chat input
-                  if (chatInput) { 
-                    chatInput.value = transcript; 
-                    chatInput.focus(); 
-                    chatInputGroup.classList.remove('hidden'); 
-                  }
+                  if (chatInput) { chatInput.value = transcript; chatInput.focus(); chatInputGroup?.classList.remove('hidden'); }
                 });
               }
             });
           } else {
-            // Only put transcript in chat input (not custom morph)
-            if (chatInput) { 
-              chatInput.value = transcript; 
-              chatInput.focus(); 
-              chatInputGroup.classList.remove('hidden'); 
-            } else { 
-              alert(transcript); 
-            }
+            if (chatInput) { chatInput.value = transcript; chatInput.focus(); chatInputGroup?.classList.remove('hidden'); }
+            else { alert(transcript); }
           }
         };
 
         recognition.onerror = (event) => {
           voiceCleanup();
-          const msg = { 'not-allowed': 'Microphone access was denied. Please allow when the browser prompts.',
-            'no-speech': 'No speech detected. Try again.',
-            'audio-capture': 'No microphone found. Please connect a microphone.',
-            'network': 'Voice recognition needs internet. Check your connection.',
-            'aborted': null,
-            'service-not-allowed': 'Voice service not allowed. Try again later.'
-          }[event.error];
+          const msg = { 'not-allowed': 'Microphone access denied.', 'no-speech': 'No speech detected.', 'network': 'Check internet connection.' }[event.error];
           if (msg) alert(msg);
         };
-
         recognition.onend = () => { voiceCleanup(); };
-
-        try { recognition.start(); } catch (e) {
-          voiceCleanup();
-          alert('Could not start microphone: ' + (e.message || 'Unknown error'));
-        }
+        try { recognition.start(); } catch (e) { voiceCleanup(); alert('Mic Error: ' + e.message); }
       }
 
       const mediaDevices = navigator.mediaDevices;
       if (mediaDevices && typeof mediaDevices.getUserMedia === 'function') {
         mediaDevices.getUserMedia({ audio: true })
           .then((stream) => { stream.getTracks().forEach((t) => t.stop()); startRecognition(); })
-          .catch(() => { voiceCleanup(); alert('Please allow microphone access when prompted.'); });
+          .catch(() => { voiceCleanup(); alert('Please allow microphone access.'); });
       } else {
         startRecognition();
       }
     });
   }
 
-  // --- ACCESSIBILITY TOGGLES ---
-  dyslexiaToggle.addEventListener('click', () => {
+  // --- 7. Accessibility Toggles ---
+  document.getElementById('acc-header')?.addEventListener('click', (e) => {
+      const header = e.currentTarget;
+      const body = document.getElementById('acc-body');
+      const isOpen = header.classList.toggle('open');
+      header.setAttribute('aria-expanded', isOpen);
+      if(body) body.classList.toggle('open');
+  });
+
+  document.getElementById('dyslexia-toggle')?.addEventListener('click', () => {
     state.dyslexia = !state.dyslexia;
     saveState();
-    dyslexiaToggle.classList.toggle('on', state.dyslexia);
+    document.getElementById('dyslexia-toggle').classList.toggle('on', state.dyslexia);
     refreshGlobalStyles();
   });
 
-  highContrastToggle.addEventListener('click', () => {
+  document.getElementById('high-contrast-toggle')?.addEventListener('click', () => {
     state.highContrast = !state.highContrast;
     saveState();
-    highContrastToggle.classList.toggle('on', state.highContrast);
+    document.getElementById('high-contrast-toggle').classList.toggle('on', state.highContrast);
     refreshGlobalStyles();
   });
 
-  colorBlindnessSelect.addEventListener('change', (e) => {
+  document.getElementById('color-blindness')?.addEventListener('change', (e) => {
     state.colorBlindness = e.target.value;
     saveState();
     refreshGlobalStyles();
   });
 
-  // --- Close & Misc ---
-  document.getElementById('close-btn').addEventListener('click', () => {
-    try { window.close(); } catch (_) {}
-  });
-
-  document.getElementById('safe-mode-toggle').addEventListener('click', () => {
+  // --- 8. Init ---
+  document.getElementById('close-btn')?.addEventListener('click', () => { try { window.close(); } catch (_) {} });
+  
+  document.getElementById('safe-mode-toggle')?.addEventListener('click', (e) => {
     state.safeMode = !state.safeMode;
     saveState();
-    document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
+    e.currentTarget.classList.toggle('on', state.safeMode);
+    e.currentTarget.setAttribute('aria-checked', state.safeMode);
   });
 
-  // --- Initialization ---
   loadState().then(() => {
     document.querySelectorAll('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === state.mode));
-    dyslexiaToggle.classList.toggle('on', state.dyslexia);
-    highContrastToggle.classList.toggle('on', state.highContrast);
-    document.getElementById('safe-mode-toggle').classList.toggle('on', state.safeMode);
-    colorBlindnessSelect.value = state.colorBlindness;
-    setView(state.view || 'original');
+    document.getElementById('dyslexia-toggle')?.classList.toggle('on', state.dyslexia);
+    document.getElementById('high-contrast-toggle')?.classList.toggle('on', state.highContrast);
+    const safeToggle = document.getElementById('safe-mode-toggle');
+    if(safeToggle) {
+        safeToggle.classList.toggle('on', state.safeMode);
+        safeToggle.setAttribute('aria-checked', state.safeMode);
+    }
+    const colorSelect = document.getElementById('color-blindness');
+    if(colorSelect) colorSelect.value = state.colorBlindness;
     
-    // Apply saved styles immediately on load
+    // Set initial view without applying styles yet, as refreshGlobalStyles will do it once.
+    setView(state.view || 'original', { apply: false });
+    
+    // Apply initial styles based on loaded state.
     refreshGlobalStyles();
   });
-});
+
+}); // End DOMContentLoaded
