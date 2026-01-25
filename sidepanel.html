@@ -51,21 +51,22 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 20px;
+      gap: 10px;
     }
-    .header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 700;
-      background: var(--gradient-hero);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    
+    /* Right Side User Controls Group */
+    .user-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0; /* Prevent these from squishing */
     }
-    .close-btn {
-      width: 32px;
+
+    /* Shared Button Styles for Header */
+    .header-btn {
       height: 32px;
-      border-radius: 8px;
+      border-radius: 8px; /* Unified Shape */
       border: 1px solid var(--border);
       background: var(--card-bg);
       backdrop-filter: var(--glass);
@@ -74,19 +75,29 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s, color 0.2s;
+      transition: all 0.2s;
+      padding: 0 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
     }
-    .close-btn:hover { background: var(--border); color: var(--text); }
+    .header-btn:hover { background: var(--border); color: var(--text); }
+    
+    /* Specific width for icon-only buttons */
+    .icon-btn { width: 32px; padding: 0; }
 
-    /* ---- View Toggles ---- */
+    /* ---- View Toggles (Morphed/Original) ---- */
+    /* Updated: Now flex: 1 to fill available horizontal space */
     .scope-toggles {
       display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 6px;
+      flex: 1; 
     }
+    
+    /* Updated: Buttons now grow to fill the container */
     .scope-btn {
-      padding: 6px 12px;
-      border-radius: 999px;
+      height: 32px;
+      padding: 0 8px;
+      border-radius: 8px; 
       font-size: 0.75rem;
       font-weight: 500;
       border: 1px solid var(--border);
@@ -95,6 +106,10 @@
       backdrop-filter: var(--glass);
       color: var(--text-dim);
       transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center; /* Center text since button is wider */
+      flex: 1; /* Make buttons equal width and expand */
     }
     .scope-btn.active-morphed {
       background: rgba(34, 197, 94, 0.2);
@@ -107,23 +122,31 @@
       border-color: var(--border);
     }
 
-    /* ---- Morph Button ---- */
+    /* ---- Controls Row (Morph + Safe Mode) ---- */
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: stretch;
+    }
+
+    /* ---- Morph Button (Left) ---- */
     .morph-btn {
-      width: 100%;
-      padding: 14px 20px;
+      flex: 1;
+      padding: 12px;
       border: none;
       border-radius: 12px;
       background: var(--gradient-hero);
       color: white;
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      margin-bottom: 12px;
+      gap: 8px; /* Spacing between Icon and Text */
       transition: transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
     }
     .morph-btn:hover {
       transform: translateY(-1px);
@@ -131,45 +154,46 @@
     }
     .morph-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
-    /* ---- Safe Mode ---- */
+    /* ---- Safe Mode (Right) ---- */
     .safe-mode {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       color: var(--text-dim);
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 10px 12px;
+      padding: 0 12px;
       backdrop-filter: var(--glass);
     }
-    .safe-mode span { display: flex; align-items: center; gap: 8px; }
+    .safe-mode span { display: flex; align-items: center; gap: 6px; }
 
     /* Toggle switch */
     .toggle {
-      width: 44px;
-      height: 24px;
+      width: 38px;
+      height: 20px;
       border-radius: 12px;
       background: var(--border);
       cursor: pointer;
       position: relative;
       transition: background 0.2s;
+      flex-shrink: 0;
     }
     .toggle.on { background: #3b82f6; }
     .toggle::after {
       content: '';
       position: absolute;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: white;
-      top: 3px;
-      left: 3px;
+      top: 2px;
+      left: 2px;
       transition: transform 0.2s;
     }
-    .toggle.on::after { transform: translateX(20px); }
+    .toggle.on::after { transform: translateX(18px); }
 
     /* ---- Section labels ---- */
     .section-label {
@@ -231,7 +255,7 @@
       gap: 8px;
       transition: border-color 0.2s, background 0.2s;
     }
-    .ai-btn:hover { border-color: rgba(139, 92, 246, 0.5); background: rgba(30, 41, 59, 0.8); }
+    .ai-btn:hover { border-color: rgba(139, 92, 246, 0.5); background: rgba(30, 41, 59, 0.8); box-shadow: 0 0 14px rgba(124, 58, 237, 0.45); }
 
     /* ---- AI Interaction Area ---- */
     .ai-result-box {
@@ -344,28 +368,6 @@
       font-size: 0.75rem;
       min-height: 16px;
     }
-    .signout-btn {
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-      color: var(--text-dim);
-      font-size: 0.7rem;
-      cursor: pointer;
-    }
-    .profile-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-      color: var(--text);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: var(--glass);
-    }
     .profile-panel {
       padding: 16px;
       border-radius: 12px;
@@ -471,21 +473,25 @@
   </style>
 </head>
 <body>
-  <!-- Header -->
   <header class="header">
-    <div></div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button id="profile-btn" class="profile-btn hidden" aria-label="Profile">
+    <div class="scope-toggles">
+      <button id="view-morphed" class="scope-btn">Morphed</button>
+      <button id="view-original" class="scope-btn active-original">Original</button>
+    </div>
+    
+    <div class="user-controls">
+      <button id="auth-signout" class="header-btn hidden">Sign Out</button>
+      
+      <button id="profile-btn" class="header-btn icon-btn hidden" aria-label="Profile">
         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
-      <button id="auth-signout" class="signout-btn hidden">Sign Out</button>
-      <button id="close-btn" class="close-btn" aria-label="Close">
+      
+      <button id="close-btn" class="header-btn icon-btn" aria-label="Close">
         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
   </header>
 
-  <!-- Auth Screen -->
   <div id="auth-screen" class="auth-screen">
     <div id="auth-signin-view">
       <div class="auth-title">Sign in to continue</div>
@@ -512,61 +518,36 @@
 
   <div id="app" class="hidden">
 
-  <!-- Profile Panel -->
   <div id="profile-panel" class="profile-panel hidden">
-    <!-- Subscription Info -->
     <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
       <div class="auth-title" style="font-size: 0.9rem;">Subscription</div>
-
-      <div class="profile-row">
-        Plan: <span id="profile-plan">Free</span>
-      </div>
-
-      <div class="profile-row">
-        Status: <span id="profile-status" style="color: var(--success);">Active</span>
-      </div>
-
-      <div class="profile-row">
-        Renewal: <span id="profile-renewal">—</span>
-      </div>
-
-      <button
-        class="auth-btn primary"
-        style="margin-top: 10px; width: 100%; font-size: 0.75rem;"
-      >
-        Upgrade Plan
-      </button>
+      <div class="profile-row">Plan: <span id="profile-plan">Free</span></div>
+      <div class="profile-row">Status: <span id="profile-status" style="color: var(--success);">Active</span></div>
+      <div class="profile-row">Renewal: <span id="profile-renewal">—</span></div>
+      <button class="auth-btn primary" style="margin-top: 10px; width: 100%; font-size: 0.75rem;">Upgrade Plan</button>
     </div>
-
-    <div class="auth-title">Profile</div>
+    <div class="auth-title" style="margin-top:10px;">Profile</div>
     <div class="profile-row">Email: <span id="profile-email">-</span></div>
     <div class="profile-row">UID: <span id="profile-uid">-</span></div>
     <div class="profile-row">Provider: <span id="profile-provider">Email/Password</span></div>
     <div class="profile-row">Last login: <span id="profile-login">-</span></div>
   </div>
 
-  <!-- View: Morphed | Original -->
-  <div class="scope-toggles">
-    <button id="view-morphed" class="scope-btn">Morphed</button>
-    <button id="view-original" class="scope-btn active-original">Original</button>
+  <div class="controls-row">
+    <button id="morph-btn" class="morph-btn">
+      <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 1 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937a2 2 0 0 1 1.437-1.437l1.582-6.135a.5.5 0 0 1 .963 0l1.582 6.135a2 2 0 0 1 1.437 1.437l6.135 1.582a.5.5 0 0 1 0 .963l-6.135 1.582a2 2 0 0 1-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+      Morph
+    </button>
+
+    <div class="safe-mode">
+      <span>
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Safe Mode
+      </span>
+      <div id="safe-mode-toggle" class="toggle on" role="switch" aria-checked="true"></div>
+    </div>
   </div>
 
-  <!-- Morph This Page -->
-  <button id="morph-btn" class="morph-btn">
-    <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 1 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.937a2 2 0 0 1 1.437-1.437l1.582-6.135a.5.5 0 0 1 .963 0l1.582 6.135a2 2 0 0 1 1.437 1.437l6.135 1.582a.5.5 0 0 1 0 .963l-6.135 1.582a2 2 0 0 1-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-    <span>Morph This Page</span>
-  </button>
-
-  <!-- Safe Mode -->
-  <div class="safe-mode">
-    <span>
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Safe Mode (Protect Forms)
-    </span>
-    <div id="safe-mode-toggle" class="toggle on" role="switch" aria-checked="true"></div>
-  </div>
-
-  <!-- Mode Selection -->
   <span class="section-label">Mode Selection</span>
   <div class="mode-grid">
     <div id="mode-easy-read" class="mode-card" data-mode="easy-read">
@@ -591,7 +572,6 @@
     </div>
   </div>
 
-  <!-- Custom Morph  -->
   <span class="section-label">Custom Morph</span>
   <div style="margin-bottom: 20px; background: var(--card-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
     <textarea id="custom-prompt" placeholder="Ask AI to change something... (e.g., 'Make all text blue')" 
@@ -601,7 +581,6 @@
     </button>
   </div>
 
-  <!-- AI Agent -->
   <span class="section-label">AI Agent</span>
   <div class="ai-grid">
     <button id="ai-summarize" class="ai-btn">
@@ -617,7 +596,6 @@
     </button>
   </div>
 
-  <!-- AI Interaction Area -->
   <div id="ai-interaction-area">
     <div id="ai-result-box" class="ai-result-box hidden"></div>
     <div id="ai-chat-input-group" class="ai-chat-input-group hidden">
@@ -626,7 +604,6 @@
     </div>
   </div>
 
-  <!-- Accessibility Controls (collapsible) -->
   <button id="acc-header" class="acc-header open" aria-expanded="true">
     <span>Accessibility Controls</span>
     <svg class="chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -651,7 +628,6 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     <p class="powered">Powered by Gemini 2.5</p>
     <div class="progress-wrap">
