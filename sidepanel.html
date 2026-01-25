@@ -514,6 +514,30 @@
 
   <!-- Profile Panel -->
   <div id="profile-panel" class="profile-panel hidden">
+    <!-- Subscription Info -->
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
+      <div class="auth-title" style="font-size: 0.9rem;">Subscription</div>
+
+      <div class="profile-row">
+        Plan: <span id="profile-plan">Free</span>
+      </div>
+
+      <div class="profile-row">
+        Status: <span id="profile-status" style="color: var(--success);">Active</span>
+      </div>
+
+      <div class="profile-row">
+        Renewal: <span id="profile-renewal">—</span>
+      </div>
+
+      <button
+        class="auth-btn primary"
+        style="margin-top: 10px; width: 100%; font-size: 0.75rem;"
+      >
+        Upgrade Plan
+      </button>
+    </div>
+
     <div class="auth-title">Profile</div>
     <div class="profile-row">Email: <span id="profile-email">-</span></div>
     <div class="profile-row">UID: <span id="profile-uid">-</span></div>
