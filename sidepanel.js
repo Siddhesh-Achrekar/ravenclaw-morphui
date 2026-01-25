@@ -5,6 +5,7 @@ const MORPH_STYLE_ID = 'morph-ui-injected';
 const OVERLAY_ID = 'morph-ui-overlay';
 const ORIGINAL_STYLE_ID = 'morph-acc-original-style';
 const MODEL = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const FIREBASE_API_KEY = env.FIREBASE_CONFIG?.apiKey;
 
 // --- PROMPTS FOR AI MODES ---
 const MODE_PROMPTS = {
@@ -470,6 +471,142 @@ async function setView(view, { apply = true } = {}) {
 
 // --- DOMContentLoaded Wrapper (Essential for Event Listeners) ---
 document.addEventListener('DOMContentLoaded', () => {
+
+  // --- 0. Auth UI ---
+  const authScreen = document.getElementById('auth-screen');
+  const appWrap = document.getElementById('app');
+  const authSigninView = document.getElementById('auth-signin-view');
+  const authSignupView = document.getElementById('auth-signup-view');
+  const authEmail = document.getElementById('auth-email');
+  const authPassword = document.getElementById('auth-password');
+  const authEmailSignup = document.getElementById('auth-email-signup');
+  const authPasswordSignup = document.getElementById('auth-password-signup');
+  const authSignIn = document.getElementById('auth-signin');
+  const authSignUp = document.getElementById('auth-signup');
+  const authGoogle = document.getElementById('auth-google');
+  const authGoogleSignup = document.getElementById('auth-google-signup');
+  const authToSignup = document.getElementById('auth-to-signup');
+  const authToSignin = document.getElementById('auth-to-signin');
+  const authError = document.getElementById('auth-error');
+  const authSignOut = document.getElementById('auth-signout');
+
+  function showAuthError(msg) {
+    if (authError) authError.textContent = msg || '';
+  }
+
+  function setAuthed(isAuthed) {
+    if (authScreen) authScreen.classList.toggle('hidden', isAuthed);
+    if (appWrap) appWrap.classList.toggle('hidden', !isAuthed);
+    if (authSignOut) authSignOut.classList.toggle('hidden', !isAuthed);
+    if (!isAuthed) showAuthError('');
+  }
+
+  async function setAuthSession(session) {
+    try {
+      if (session) {
+        await chrome.storage.local.set({ firebaseAuth: session });
+      } else {
+        await chrome.storage.local.remove(['firebaseAuth']);
+      }
+    } catch (_) {}
+  }
+
+  async function getAuthSession() {
+    try {
+      const r = await chrome.storage.local.get(['firebaseAuth']);
+      return r.firebaseAuth || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function firebaseRequest(endpoint, body) {
+    if (!FIREBASE_API_KEY) throw new Error('Firebase API key missing.');
+    const url = `https://identitytoolkit.googleapis.com/v1/${endpoint}?key=${encodeURIComponent(FIREBASE_API_KEY)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, returnSecureToken: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || 'Authentication failed.';
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function initAuthUI() {
+    const session = await getAuthSession();
+    setAuthed(!!session);
+  }
+
+  authToSignup?.addEventListener('click', () => {
+    authSigninView?.classList.add('hidden');
+    authSignupView?.classList.remove('hidden');
+    showAuthError('');
+  });
+
+  authToSignin?.addEventListener('click', () => {
+    authSignupView?.classList.add('hidden');
+    authSigninView?.classList.remove('hidden');
+    showAuthError('');
+  });
+
+  authSignIn?.addEventListener('click', async () => {
+    const email = (authEmail?.value || '').trim();
+    const password = authPassword?.value || '';
+    if (!email || !password) { showAuthError('Enter email and password.'); return; }
+    try {
+      authSignIn.disabled = true;
+      const data = await firebaseRequest('accounts:signInWithPassword', { email, password });
+      await setAuthSession({
+        idToken: data.idToken,
+        refreshToken: data.refreshToken,
+        email: data.email
+      });
+      showAuthError('');
+      setAuthed(true);
+    } catch (e) {
+      showAuthError(e?.message || 'Sign in failed.');
+    } finally {
+      authSignIn.disabled = false;
+    }
+  });
+
+  authSignUp?.addEventListener('click', async () => {
+    const email = (authEmailSignup?.value || '').trim();
+    const password = authPasswordSignup?.value || '';
+    if (!email || !password) { showAuthError('Enter email and password.'); return; }
+    try {
+      authSignUp.disabled = true;
+      const data = await firebaseRequest('accounts:signUp', { email, password });
+      await setAuthSession({
+        idToken: data.idToken,
+        refreshToken: data.refreshToken,
+        email: data.email
+      });
+      showAuthError('');
+      setAuthed(true);
+    } catch (e) {
+      showAuthError(e?.message || 'Sign up failed.');
+    } finally {
+      authSignUp.disabled = false;
+    }
+  });
+
+  const googleNotReady = async () => {
+    showAuthError('Google sign-in needs OAuth client ID configuration.');
+  };
+  authGoogle?.addEventListener('click', googleNotReady);
+  authGoogleSignup?.addEventListener('click', googleNotReady);
+
+  authSignOut?.addEventListener('click', async () => {
+    await setAuthSession(null);
+    setAuthed(false);
+  });
+
+  initAuthUI();
 
   // --- 1. Custom Morph Logic (Independent Handler) ---
   const customInput = document.getElementById('custom-prompt');

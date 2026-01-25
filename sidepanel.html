@@ -264,6 +264,68 @@
     #ai-chat-send:hover { opacity: 0.85; }
     .hidden { display: none !important; }
 
+    /* ---- Auth Screen ---- */
+    .auth-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .auth-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .auth-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .auth-input:focus { border-color: var(--primary); box-shadow: var(--glow); }
+    .auth-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .auth-btn {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .auth-btn.primary {
+      background: var(--gradient-hero);
+      border: none;
+      color: white;
+    }
+    .auth-error {
+      color: #fca5a5;
+      font-size: 0.75rem;
+      min-height: 16px;
+    }
+    .signout-btn {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
     /* ---- Accessibility (collapsible) ---- */
     .acc-header {
       width: 100%;
@@ -358,10 +420,40 @@
   <!-- Header -->
   <header class="header">
     <h1>MorphUI</h1>
-    <button id="close-btn" class="close-btn" aria-label="Close">
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-    </button>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="auth-signout" class="signout-btn hidden">Sign Out</button>
+      <button id="close-btn" class="close-btn" aria-label="Close">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
   </header>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-screen">
+    <div id="auth-signin-view">
+      <div class="auth-title">Sign in to continue</div>
+      <input id="auth-email" class="auth-input" type="email" placeholder="Email">
+      <input id="auth-password" class="auth-input" type="password" placeholder="Password">
+      <div class="auth-actions">
+        <button id="auth-signin" class="auth-btn primary">Sign In</button>
+        <button id="auth-to-signup" class="auth-btn">Create account</button>
+      </div>
+      <button id="auth-google" class="auth-btn" style="width:100%;">Continue with Google</button>
+    </div>
+    <div id="auth-signup-view" class="hidden">
+      <div class="auth-title">Create your account</div>
+      <input id="auth-email-signup" class="auth-input" type="email" placeholder="Email">
+      <input id="auth-password-signup" class="auth-input" type="password" placeholder="Password">
+      <div class="auth-actions">
+        <button id="auth-signup" class="auth-btn primary">Sign Up</button>
+        <button id="auth-to-signin" class="auth-btn">Back to sign in</button>
+      </div>
+      <button id="auth-google-signup" class="auth-btn" style="width:100%;">Continue with Google</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+  </div>
+
+  <div id="app" class="hidden">
 
   <!-- View: Morphed | Original -->
   <div class="scope-toggles">
@@ -476,6 +568,8 @@
       <div id="progress-fill" class="progress-fill"></div>
     </div>
   </footer>
+
+  </div>
 
   <script type="module" src="sidepanel.js"></script>
 </body>
