@@ -5,17 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --text: #f8fafc;
-      --text-dim: #94a3b8;
-      --primary: #38bdf8;
-      --secondary: #a78bfa;
+      --bg: #0b1220;
+      --card-bg: rgba(17, 25, 40, 0.55);
+      --card-bg-strong: rgba(17, 25, 40, 0.75);
+      --text: #eef2ff;
+      --text-dim: #c7d2fe;
+      --primary: #7c3aed;
+      --secondary: #22d3ee;
       --success: #22c55e;
-      --gradient-hero: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-      --gradient-bar: linear-gradient(90deg, #38bdf8 0%, #a78bfa 100%);
-      --border: #334155;
-      --glow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      --gradient-hero: linear-gradient(135deg, #7c3aed 0%, #22d3ee 100%);
+      --gradient-bar: linear-gradient(90deg, #22d3ee 0%, #7c3aed 100%);
+      --border: rgba(148, 163, 184, 0.35);
+      --glow: 0 0 0 2px rgba(124, 58, 237, 0.45);
+      --glass: blur(18px) saturate(140%);
     }
 
     * { box-sizing: border-box; }
@@ -23,11 +25,25 @@
       font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       margin: 0;
       padding: 16px;
-      background: var(--bg);
+      background:
+        radial-gradient(800px 400px at 10% -10%, rgba(124, 58, 237, 0.35), transparent 60%),
+        radial-gradient(700px 500px at 110% 10%, rgba(34, 211, 238, 0.35), transparent 60%),
+        linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 10% 8% auto auto;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.35), transparent 70%);
+      filter: blur(6px);
+      pointer-events: none;
     }
 
     /* ---- Header ---- */
@@ -50,8 +66,9 @@
       width: 32px;
       height: 32px;
       border-radius: 8px;
-      border: none;
+      border: 1px solid var(--border);
       background: var(--card-bg);
+      backdrop-filter: var(--glass);
       color: var(--text-dim);
       cursor: pointer;
       display: flex;
@@ -72,9 +89,10 @@
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 500;
-      border: 1px solid transparent;
+      border: 1px solid var(--border);
       cursor: pointer;
       background: var(--card-bg);
+      backdrop-filter: var(--glass);
       color: var(--text-dim);
       transition: all 0.2s;
     }
@@ -121,6 +139,11 @@
       margin-bottom: 20px;
       font-size: 0.875rem;
       color: var(--text-dim);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      backdrop-filter: var(--glass);
     }
     .safe-mode span { display: flex; align-items: center; gap: 8px; }
 
@@ -171,6 +194,7 @@
       border-radius: 12px;
       background: var(--card-bg);
       border: 1px solid var(--border);
+      backdrop-filter: var(--glass);
       cursor: pointer;
       text-align: left;
       transition: border-color 0.2s, box-shadow 0.2s;
@@ -197,6 +221,7 @@
       border-radius: 12px;
       background: var(--card-bg);
       border: 1px solid var(--border);
+      backdrop-filter: var(--glass);
       color: var(--text);
       font-size: 0.8rem;
       font-weight: 500;
@@ -210,8 +235,9 @@
 
     /* ---- AI Interaction Area ---- */
     .ai-result-box {
-      background: #1f2937;
-      border: 1px solid #374151;
+      background: var(--card-bg-strong);
+      border: 1px solid var(--border);
+      backdrop-filter: var(--glass);
       padding: 12px;
       border-radius: 8px;
       font-size: 0.9rem;
@@ -239,7 +265,7 @@
     }
     #ai-chat-input {
       flex-grow: 1;
-      background: var(--card-bg);
+      background: var(--card-bg-strong);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 8px 12px;
@@ -274,6 +300,7 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       margin-bottom: 16px;
+      backdrop-filter: var(--glass);
     }
     .auth-title {
       font-size: 1rem;
@@ -285,7 +312,7 @@
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
-      background: #0b1220;
+      background: var(--card-bg-strong);
       color: var(--text);
       font-size: 0.85rem;
       outline: none;
@@ -305,6 +332,7 @@
       font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
+      backdrop-filter: var(--glass);
     }
     .auth-btn.primary {
       background: var(--gradient-hero);
@@ -336,6 +364,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      backdrop-filter: var(--glass);
     }
     .profile-panel {
       padding: 16px;
@@ -343,6 +372,7 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       margin-bottom: 16px;
+      backdrop-filter: var(--glass);
     }
     .profile-row {
       font-size: 0.8rem;
