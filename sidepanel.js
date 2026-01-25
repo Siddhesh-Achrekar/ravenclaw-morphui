@@ -565,14 +565,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!resultBox) return;
     resultBox.classList.remove('hidden', 'error');
     if (isError) {
-      resultBox.classList.add('error'); resultBox.textContent = content;
+      resultBox.classList.add('error'); 
+      resultBox.textContent = content;
     } else {
+      // Convert Markdown list to HTML list
       if (content.includes('* ') || content.includes('- ')) {
         const listItems = content.split(/[\*\-]\s+/).filter(s => s.trim()).map(item => `<li>${item.trim()}</li>`).join('');
-        resultBox.innerHTML = `<ul>${listItems}</ul>`;
-      } else {
-        resultBox.textContent = content;
+        content = `<ul>${listItems}</ul>`;
       }
+      // Convert [text](url) to <a href="url">text</a>
+      const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g;
+      const linkedContent = content.replace(linkRegex, '<a href="$2" target="_blank" style="color: #4da6ff; text-decoration: underline;">$1</a>');
+      
+      resultBox.innerHTML = linkedContent;
     }
   }
 
@@ -599,13 +604,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if(!chatInput) return;
       const q = chatInput.value.trim();
       if (q === '') return;
+
+      // 1. Check for navigation commands first
+      const nav = parseAsNavigation(q);
+      if (nav.navigate && nav.url) {
+        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+          if (tab && tab.id) {
+            chrome.tabs.update(tab.id, { url: nav.url });
+          }
+        });
+        chatInput.value = '';
+        return; 
+      }
+
+      // 2. If not navigation, proceed with AI chat
       showAiLoader();
       chatInput.value = '';
       const page = await getPageText();
       if (!page.ok) { showAiResult('Error: ' + page.error, true); chatInputGroup?.classList.remove('hidden'); return; }
       if (!page.text) { showAiResult('Error: Cannot read page to answer question.', true); chatInputGroup?.classList.remove('hidden'); return; }
 
-      const r = await callGemini(`Based *only* on the text below, answer the user's question. If the answer is not in the text, say you cannot answer. Question: "${q}"\n\nPage Text: ${page.text}`);
+      const prompt = `Based *only* on the text below, answer the user's question. If the answer is not in the text, say you cannot answer. If referring to external articles or pages (like Wikipedia), provide links in Markdown format [Link Text](URL). Question: "${q}"\n\nPage Text: ${page.text}`;
+      const r = await callGemini(prompt);
       
       if (r.ok) showAiResult(r.text); else showAiResult('Failed: ' + r.error, true);
       chatInputGroup?.classList.remove('hidden');
